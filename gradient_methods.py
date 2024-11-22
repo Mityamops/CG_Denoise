@@ -9,14 +9,14 @@ import matplotlib.pyplot as plt
 from scipy.signal import convolve2d
 from scipy import optimize
 np.random.seed(0)
-
+from unifrom import dichotomy_method
 def estimate_lipschitz(g, x):
     y = rand(*x.shape)
     L = norm(g(x)-g(y))/norm(x-y)
     return L
 
 
-def grad_descent(f, grad, x0, max_iters=10000, tol=1e-4):
+def grad_descent(f, grad, x0, max_iters=1000, tol=1e-4):
     x_k = x0
     L = estimate_lipschitz(grad, x_k)
     step_size = 10 / L
@@ -36,10 +36,12 @@ def grad_descent(f, grad, x0, max_iters=10000, tol=1e-4):
             break
         x_k = x_k1
 
+        #print(norm(d))
+    x = x_k
     return x, res
 
 
-def grad_descent_bb(f, grad, x0, max_iters=10000, tol=1e-4):
+def grad_descent_bb(f, grad, x0, max_iters=100, tol=1e-4):
     x_k = x0
     L = estimate_lipschitz(grad, x0)
     step_size = L / 100
@@ -62,29 +64,119 @@ def grad_descent_bb(f, grad, x0, max_iters=10000, tol=1e-4):
         if (res[-1] < tol * res[0]):
             x = x_k
             break
-
+    x=x_k
     return x, res
 
-def FR(f,grad,x0,e=0.001):
+def FR(f,grad,x0,e=0.001,print_grad=0,print_dif=0,visualize=0,max_iter=500):
     xcur = np.array(x0)
     n = len(x0)
-    k = 0 # step1
-    dk=grad(x0)
+    k = 0
+    dk = grad(x0)
     prevgrad = 1
-    pk = -1*dk
-    res=[]
-    res.append(norm(grad(x0)))
-    while (np.linalg.norm(dk)>e): # step3
-        if (k%n==0): # step4
-            pk = -1*dk
+    pk = -dk
+    res = [np.linalg.norm(dk)]
+
+    #while k < max_iter:
+    while (np.linalg.norm(dk)>e):
+        xprev = xcur
+        if k % n == 0:
+            pk = -dk
         else:
-            bk = (np.linalg.norm(dk)**2)/(np.linalg.norm(prevgrad)**2) # step5
-            prevpk = pk
-            pk = -1*dk + bk*prevpk # step6
-        a = (optimize.minimize_scalar(lambda x: f(xcur+pk*x), bounds=(0,10)).x)
-        xcur = xcur + a*pk #step8
-        k=k+1 #step8
-        prevgrad=dk
-        dk=grad(xcur)
-        res.append(norm(dk))
+            bk = np.linalg.norm(dk)**2 / np.linalg.norm(prevgrad)**2
+            pk = -dk + bk * pk
+
+        alpha = optimize.minimize_scalar(lambda a: f(xcur + a * pk), bounds=(0, 1)).x
+        xcur = xcur + alpha * pk
+        k += 1
+
+        prevgrad = dk
+        dk = grad(xcur)
+        res.append(np.linalg.norm(dk))
+        if print_dif==1:
+            print(np.linalg.norm(xcur-xprev))
+        if print_grad==1:
+            print(np.linalg.norm(dk))
+        if visualize!=0 and k%visualize==0:
+            plt.title(str(k)+"iteration")
+            plt.imshow(xcur, cmap='gray')
+            plt.show()
+
+
+    return xcur,res #step10
+
+def DY(f,grad,x0,e=0.001,print_grad=0,print_dif=0,visualize=0,max_iter=500):
+    xcur = np.array(x0)
+    n = len(x0)
+    k = 0
+    dk = grad(x0)
+    prevgrad = 1
+    pk = -dk
+    res = [np.linalg.norm(dk)]
+
+    #while k < max_iter:
+    while (np.linalg.norm(dk)>e):
+        xprev = xcur
+        if k % n == 0:
+            pk = -dk
+        else:
+            bk = np.trace(dk.T @ dk) / np.trace(prevgrad.T @ (dk - prevgrad))
+            pk = -dk + bk * pk
+
+        alpha = optimize.minimize_scalar(lambda a: f(xcur + a * pk), bounds=(0, 1)).x
+        xcur = xcur + alpha * pk
+        k += 1
+
+        prevgrad = dk
+        dk = grad(xcur)
+        res.append(np.linalg.norm(dk))
+        if print_dif==1:
+            print(np.linalg.norm(xcur-xprev))
+        if print_grad==1:
+            print(np.linalg.norm(dk))
+        if visualize!=0 and k%visualize==0:
+            plt.title(str(k)+"iteration")
+            plt.imshow(xcur, cmap='gray')
+            plt.show()
+
+
+    return xcur,res #step10
+
+def PR(f,grad,x0,e=0.001,print_grad=0,print_dif=0,visualize=0,max_iter=500):
+    xcur = np.array(x0)
+    n = len(x0)
+    k = 0
+    dk = grad(x0)
+    prevgrad = 1
+    pk = -dk
+    res = [np.linalg.norm(dk)]
+
+    #while k < max_iter:
+    while (np.linalg.norm(dk)>e):
+        xprev = xcur
+        if k % n == 0:
+            pk = -dk
+        else:
+
+            bk = np.trace(dk.T @ (dk - prevgrad)) / np.trace(prevgrad.T @ prevgrad)
+            pk = -dk + bk * pk
+
+
+        alpha = optimize.minimize_scalar(lambda a: f(xcur + a * pk), bounds=(0, 1)).x
+        #alpha = dichotomy_method(0, 1, 0.001, lambda a: f(xcur + a * pk))
+        xcur = xcur + alpha * pk
+        k += 1
+
+        prevgrad = dk
+        dk = grad(xcur)
+        res.append(np.linalg.norm(dk))
+        if print_dif==1:
+            print(np.linalg.norm(xcur-xprev))
+        if print_grad==1:
+            print(np.linalg.norm(dk))
+        if visualize!=0 and k%visualize==0:
+            plt.title(str(k)+"iteration")
+            plt.imshow(xcur, cmap='gray')
+            plt.show()
+
+
     return xcur,res #step10
