@@ -67,7 +67,49 @@ def grad_descent_bb(f, grad, x0, max_iters=100, tol=1e-4):
     x=x_k
     return x, res
 
-def FR(f,grad,x0,e=0.001,print_grad=0,print_dif=0,visualize=0,max_iter=500):
+
+
+def HY(f, grad, x0, e=0.001, print_grad=0, print_dif=0, visualize=0, max_iter=500):
+    xcur = np.array(x0)
+    n = len(x0)
+    k = 0
+    dk = grad(x0)
+    prevgrad = dk.copy()
+    pk = -dk
+    res = [np.linalg.norm(dk)]
+
+    while (np.linalg.norm(dk) > e) and (k < max_iter):
+        xprev = xcur
+        if k % n == 0:
+            pk = -dk
+        else:
+            yk = dk - prevgrad
+            numerator = np.trace(dk.T @ yk) - np.trace(dk.T @ dk)
+            denominator = np.trace(pk.T @ yk) - np.trace(prevgrad.T @ prevgrad)
+            bk = numerator / denominator
+            pk = -dk + bk * pk
+
+        alpha = optimize.minimize_scalar(lambda a: f(xcur + a * pk), bounds=(0, 1)).x
+        xcur = xcur + alpha * pk
+        k += 1
+
+        prevgrad = dk.copy()
+        dk = grad(xcur)
+        res.append(np.linalg.norm(dk))
+        if print_dif == 1:
+            print(np.linalg.norm(xcur - xprev))
+        if print_grad == 1:
+            print(np.linalg.norm(dk))
+        if visualize != 0 and k % visualize == 0:
+            plt.title(str(k) + " iteration")
+            plt.imshow(xcur, cmap='gray')
+            plt.show()
+
+    return xcur, res
+
+
+
+def CG(f,grad,x0,e=0.001,print_grad=0,print_dif=0,visualize=0,max_iter=500,method='FR'):
     xcur = np.array(x0)
     n = len(x0)
     k = 0
@@ -82,7 +124,12 @@ def FR(f,grad,x0,e=0.001,print_grad=0,print_dif=0,visualize=0,max_iter=500):
         if k % n == 0:
             pk = -dk
         else:
-            bk = np.linalg.norm(dk)**2 / np.linalg.norm(prevgrad)**2
+            if method=='FR':
+                bk = np.linalg.norm(dk)**2 / np.linalg.norm(prevgrad)**2
+            if method=='PR':
+                bk = np.linalg.norm(dk.T @ (dk - prevgrad)) / np.linalg.norm(prevgrad.T @ prevgrad)
+            if method=='DY':
+                bk = np.linalg.norm(dk.T @ dk) / np.linalg.norm(pk.T  @ (dk - prevgrad))
             pk = -dk + bk * pk
 
         alpha = optimize.minimize_scalar(lambda a: f(xcur + a * pk), bounds=(0, 1)).x
@@ -101,82 +148,5 @@ def FR(f,grad,x0,e=0.001,print_grad=0,print_dif=0,visualize=0,max_iter=500):
             plt.imshow(xcur, cmap='gray')
             plt.show()
 
-
-    return xcur,res #step10
-
-def DY(f,grad,x0,e=0.001,print_grad=0,print_dif=0,visualize=0,max_iter=500):
-    xcur = np.array(x0)
-    n = len(x0)
-    k = 0
-    dk = grad(x0)
-    prevgrad = 1
-    pk = -dk
-    res = [np.linalg.norm(dk)]
-
-    #while k < max_iter:
-    while (np.linalg.norm(dk)>e):
-        xprev = xcur
-        if k % n == 0:
-            pk = -dk
-        else:
-            bk = np.trace(dk.T @ dk) / np.trace(prevgrad.T @ (dk - prevgrad))
-            pk = -dk + bk * pk
-
-        alpha = optimize.minimize_scalar(lambda a: f(xcur + a * pk), bounds=(0, 1)).x
-        xcur = xcur + alpha * pk
-        k += 1
-
-        prevgrad = dk
-        dk = grad(xcur)
-        res.append(np.linalg.norm(dk))
-        if print_dif==1:
-            print(np.linalg.norm(xcur-xprev))
-        if print_grad==1:
-            print(np.linalg.norm(dk))
-        if visualize!=0 and k%visualize==0:
-            plt.title(str(k)+"iteration")
-            plt.imshow(xcur, cmap='gray')
-            plt.show()
-
-
-    return xcur,res #step10
-
-def PR(f,grad,x0,e=0.001,print_grad=0,print_dif=0,visualize=0,max_iter=500):
-    xcur = np.array(x0)
-    n = len(x0)
-    k = 0
-    dk = grad(x0)
-    prevgrad = 1
-    pk = -dk
-    res = [np.linalg.norm(dk)]
-
-    #while k < max_iter:
-    while (np.linalg.norm(dk)>e):
-        xprev = xcur
-        if k % n == 0:
-            pk = -dk
-        else:
-
-            bk = np.trace(dk.T @ (dk - prevgrad)) / np.trace(prevgrad.T @ prevgrad)
-            pk = -dk + bk * pk
-
-
-        alpha = optimize.minimize_scalar(lambda a: f(xcur + a * pk), bounds=(0, 1)).x
-        #alpha = dichotomy_method(0, 1, 0.001, lambda a: f(xcur + a * pk))
-        xcur = xcur + alpha * pk
-        k += 1
-
-        prevgrad = dk
-        dk = grad(xcur)
-        res.append(np.linalg.norm(dk))
-        if print_dif==1:
-            print(np.linalg.norm(xcur-xprev))
-        if print_grad==1:
-            print(np.linalg.norm(dk))
-        if visualize!=0 and k%visualize==0:
-            plt.title(str(k)+"iteration")
-            plt.imshow(xcur, cmap='gray')
-            plt.show()
-
-
+    print(k)
     return xcur,res #step10
