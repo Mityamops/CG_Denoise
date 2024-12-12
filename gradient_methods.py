@@ -10,6 +10,8 @@ from scipy.signal import convolve2d
 from scipy import optimize
 np.random.seed(0)
 from unifrom import dichotomy_method
+
+
 def estimate_lipschitz(g, x):
     y = rand(*x.shape)
     L = norm(g(x)-g(y))/norm(x-y)
@@ -109,28 +111,42 @@ def HY(f, grad, x0, e=0.001, print_grad=0, print_dif=0, visualize=0, max_iter=50
 
 
 
-def CG(f,grad,x0,e=0.001,print_grad=0,print_dif=0,visualize=0,max_iter=500,method='FR'):
+def CG(f, grad, x0, e=0.001, print_grad=1, print_dif=0, visualize=0, max_iter=200, method='FR'):
     xcur = np.array(x0)
     n = len(x0)
     k = 0
     dk = grad(x0)
-    prevgrad = 1
+    prevgrad = dk
     pk = -dk
     res = [np.linalg.norm(dk)]
 
-    #while k < max_iter:
-    while (np.linalg.norm(dk)>e):
+    while (np.linalg.norm(dk) > e):
         xprev = xcur
         if k % n == 0:
             pk = -dk
         else:
-            if method=='FR':
-                bk = np.linalg.norm(dk)**2 / np.linalg.norm(prevgrad)**2
-            if method=='PR':
-                bk = np.linalg.norm(dk.T @ (dk - prevgrad)) / np.linalg.norm(prevgrad.T @ prevgrad)
-            if method=='DY':
-                bk = np.linalg.norm(dk.T @ dk) / np.linalg.norm(pk.T  @ (dk - prevgrad))
-            pk = -dk + bk * pk
+            if method in ['FR', 'PR', 'DY']:
+                if method == 'FR':
+                    bk = np.linalg.norm(dk)**2 / np.linalg.norm(prevgrad)**2
+                elif method == 'PR':
+                    bk = np.linalg.norm(dk.T @ (dk - prevgrad)) / np.linalg.norm(prevgrad.T @ prevgrad)
+                elif method == 'DY':
+                    bk = np.linalg.norm(dk.T @ dk) / np.linalg.norm(pk.T @ (dk - prevgrad))
+                pk=-dk+bk*pk
+            else:
+                # Calculate alpha before using it in sk and yk
+                alpha = optimize.minimize_scalar(lambda a: f(xcur + a * pk), bounds=(0, 1)).x
+                sk=alpha*pk
+                yk = dk - prevgrad
+                if method == 'BKY':
+                    bk = (((f(xcur) - f(xprev)) - 0.5 * np.trace(sk.T @ yk))  + np.trace(dk.T @ yk)  - np.trace(sk.T @ prevgrad)) / np.trace(sk.T @ yk)
+                elif method == 'BKS':
+                    bk = (((f(xcur) - f(xprev)) + 0.5 * np.trace(sk.T @ prevgrad))  + np.trace(dk.T @ yk)  - np.trace(sk.T @ prevgrad) )/ np.trace(sk.T @ yk)
+                elif method == 'BKG':
+                    bk = (((f(xcur) - f(xprev)) - 0.5 * alpha * np.trace(prevgrad.T @ prevgrad))  + np.trace(dk.T @ yk) - np.trace(sk.T @ prevgrad)) / np.trace(sk.T @ yk)
+                else:
+                    raise ValueError("Unknown method: " + method)
+                pk = -dk + bk * sk
 
         alpha = optimize.minimize_scalar(lambda a: f(xcur + a * pk), bounds=(0, 1)).x
         xcur = xcur + alpha * pk
@@ -139,14 +155,45 @@ def CG(f,grad,x0,e=0.001,print_grad=0,print_dif=0,visualize=0,max_iter=500,metho
         prevgrad = dk
         dk = grad(xcur)
         res.append(np.linalg.norm(dk))
-        if print_dif==1:
-            print(np.linalg.norm(xcur-xprev))
-        if print_grad==1:
+        if print_dif == 1:
+            print(np.linalg.norm(xcur - xprev))
+        if print_grad == 1:
             print(np.linalg.norm(dk))
-        if visualize!=0 and k%visualize==0:
-            plt.title(str(k)+"iteration")
+        if visualize != 0 and k % visualize == 0:
+            plt.title(str(k) + " iteration")
             plt.imshow(xcur, cmap='gray')
             plt.show()
 
     print(k)
-    return xcur,res #step10
+    return xcur, res
+
+
+if __name__=='__main__':
+    def rosenbrock(X):
+        m, n = X.shape
+        f = 0
+        for i in range(m - 1):
+            for j in range(n):
+                f += 100 * (X[i + 1, j] - X[i, j] ** 2) ** 2 + (1 - X[i, j]) ** 2
+        return f
+
+
+    def rosenbrock_grad(X):
+        m, n = X.shape
+        grad = np.zeros_like(X)
+        for i in range(m - 1):
+            for j in range(n):
+                grad[i, j] = -400 * (X[i + 1, j] - X[i, j] ** 2) * X[i, j] - 2 * (1 - X[i, j])
+                grad[i + 1, j] += 200 * (X[i + 1, j] - X[i, j] ** 2)
+        return grad
+
+
+    # Пример использования функции и её градиента
+    x0 = np.random.rand(5, 5) * 2 - 1  # Начальная точка в диапазоне [-1, 1]
+
+    # Запуск метода сопряжённых градиентов
+    result, residuals = CG(rosenbrock, rosenbrock_grad, x0, method='BKY',e=0.5)
+    print(result)
+    print(rosenbrock(result))
+
+
