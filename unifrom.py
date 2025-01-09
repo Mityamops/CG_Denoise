@@ -1,6 +1,5 @@
 import math
 
-
 def dichotomy_method(a, b, eps, func):
     f_calls_number = 0
     N = 0
@@ -23,6 +22,8 @@ def dichotomy_method(a, b, eps, func):
     min_x = (a + b) / 2
     min_value = func(min_x)
     return min_x
+
+
 
 
 

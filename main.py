@@ -15,14 +15,13 @@ from TV_regularization import *
 from gradient_methods import *
 from illumination_gradient import remove_illumination_gradient
 
-def TV_reg(image,met,m=1):
+
+def TV_reg(image,met='FR',m=1):
     x0 = np.zeros(image.shape)
     f = lambda x: tv_denoise_objective(x, mu=m, b=image)
     grad = lambda x: tv_denoise_grad(x, mu=m, b=image)
-    x,_= CG_CUDA(f, grad, x0,0.001,method=met)
-    plt.title("Denoised image")
-    plt.imshow(x,cmap='gray')
-    plt.show()
+    x,_= CG(f, grad, x0,method=met)
+
     return x
 def add_salt_and_pepper_noise(image: np.ndarray, salt_prob: float, pepper_prob: float) -> np.ndarray:
     """Добавляет шум типа соль-перец на изображение.
@@ -67,19 +66,26 @@ def add_noise(image):
     image = cv2.add(image, noise)
     return image
 
+
+def CG_method():
+    pass
+
+
 if __name__ == '__main__':
     # Generate a noisy image
 
-    #image=cv2.imread('images/Lena.png')
+    #image=cv2.imread('images/processed_image_grad_rad.tif')
 
-    image = cv2.imread('images/W0001F0001T0012Z001C1.tif')
-    image=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
-    #image = cv2.equalizeHist(image)
-    #image=cv2.resize(image,(400,300))
+    #image = cv2.imread(r'C://Users/митя//PycharmProjects//CG_Denoise//images//Lena.png')
+    #image=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+
+    #image=cv2.resize(image,(200,150))
 
 
     #image=add_noise(image)
-    #image=generate_image(1)
+    image=generate_image(1)
+    image=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+    image = cv2.equalizeHist(image)
 
     '''
     image = zeros((100, 100)).astype(np.float_)
@@ -100,28 +106,32 @@ if __name__ == '__main__':
     image = cv2.add(255-image, gauss_noise).astype(np.uint8)
   '''
     
-    '''
+
     plt.title('Noisy image')
     plt.imshow(image, cmap='gray')
     plt.show()
+
+
     '''
-
-
     image_r_g=remove_illumination_gradient(image)
-    '''
+
     plt.title('image after remove illumination gradient')
-    plt.imshow(image_r_g, cmap='gray')
+    plt.imshow(image, cmap='gray')
     plt.show()
     '''
     start = datetime.datetime.now()
 
-    F_R=TV_reg(image_r_g,'PR',m=0.2)
+    F_R=TV_reg(image,'FR',m=0.01)
     #print(cv2.PSNR(image,F_R))
     finish = datetime.datetime.now()
     print('Время работы: ' + str(finish - start))
 
-    cv2.imwrite('images/W0001F0001T0012Z001C1_remove_il_gr.tif', image_r_g)
-    cv2.imwrite('images/W0001F0001T0012Z001C1_denoised.png',F_R)
+    plt.title("Denoised image")
+    plt.imshow(F_R, cmap='gray')
+    plt.show()
+
+    #cv2.imwrite('images/ips 677 p15 96h 5 bad (2)_remove_il_gr.tif', image_r_g)
+    #cv2.imwrite('images/ips 677 p15 96h 5 bad (2)_denoised.png',F_R)
 
 
 

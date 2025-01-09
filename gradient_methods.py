@@ -86,8 +86,8 @@ def HY(f, grad, x0, e=0.001, print_grad=0, print_dif=0, visualize=0, max_iter=50
             pk = -dk
         else:
             yk = dk - prevgrad
-            numerator = np.trace(dk.T @ yk) - np.trace(dk.T @ dk)
-            denominator = np.trace(pk.T @ yk) - np.trace(prevgrad.T @ prevgrad)
+            numerator = np.linalg.norm(dk.T @ yk) - np.linalg.norm(dk.T @ dk)
+            denominator = np.linalg.norm(pk.T @ yk) - np.linalg.norm(prevgrad.T @ prevgrad)
             bk = numerator / denominator
             pk = -dk + bk * pk
 
@@ -120,7 +120,9 @@ def CG(f, grad, x0, e=0.001, print_grad=1, print_dif=0, visualize=0, max_iter=20
     pk = -dk
     res = [np.linalg.norm(dk)]
 
-    while (np.linalg.norm(dk) > e):
+    while (True):
+    #while k<max_iter:
+        alpha=1
         xprev = xcur
         if k % n == 0:
             pk = -dk
@@ -131,24 +133,24 @@ def CG(f, grad, x0, e=0.001, print_grad=1, print_dif=0, visualize=0, max_iter=20
                 elif method == 'PR':
                     bk = np.linalg.norm(dk.T @ (dk - prevgrad)) / np.linalg.norm(prevgrad.T @ prevgrad)
                 elif method == 'DY':
-                    bk = np.linalg.norm(dk.T @ dk) / np.linalg.norm(pk.T @ (dk - prevgrad))
+                    bk = np.trace(dk.T @ dk) / np.trace(pk.T @ (dk - prevgrad))
                 pk=-dk+bk*pk
             else:
                 # Calculate alpha before using it in sk and yk
-                alpha = optimize.minimize_scalar(lambda a: f(xcur + a * pk), bounds=(0, 1)).x
+                #alpha = optimize.minimize_scalar(lambda a: f(xcur + a * pk), bounds=(0, 1)).x
                 sk=alpha*pk
                 yk = dk - prevgrad
                 if method == 'BKY':
-                    bk = (((f(xcur) - f(xprev)) - 0.5 * np.trace(sk.T @ yk))  + np.trace(dk.T @ yk)  - np.trace(sk.T @ prevgrad)) / np.trace(sk.T @ yk)
+                    bk = (((f(xcur) - f(xprev)) - 0.5 * np.trace(sk.T @ yk)) + np.trace(dk.T @ yk)  - np.trace(sk.T @ prevgrad)) / np.trace(sk.T @ yk)
                 elif method == 'BKS':
-                    bk = (((f(xcur) - f(xprev)) + 0.5 * np.trace(sk.T @ prevgrad))  + np.trace(dk.T @ yk)  - np.trace(sk.T @ prevgrad) )/ np.trace(sk.T @ yk)
+                    bk = (((f(xcur) - f(xprev)) + 0.5 * np.trace(sk.T @ prevgrad)) + np.trace(dk.T @ yk)  - np.trace(sk.T @ prevgrad) )/ np.trace(sk.T @ yk)
                 elif method == 'BKG':
-                    bk = (((f(xcur) - f(xprev)) - 0.5 * alpha * np.trace(prevgrad.T @ prevgrad))  + np.trace(dk.T @ yk) - np.trace(sk.T @ prevgrad)) / np.trace(sk.T @ yk)
+                    bk = (((f(xcur) - f(xprev)) - 0.5 * alpha * np.trace(prevgrad.T @ prevgrad)) + np.trace(dk.T @ yk) - np.trace(sk.T @ prevgrad)) / np.trace(sk.T @ yk)
                 else:
                     raise ValueError("Unknown method: " + method)
                 pk = -dk + bk * sk
 
-        alpha = optimize.minimize_scalar(lambda a: f(xcur + a * pk), bounds=(0, 1)).x
+        alpha = optimize.minimize_scalar(lambda a: f(xcur + a * pk), bounds=(0, 100)).x
         xcur = xcur + alpha * pk
         k += 1
 
@@ -158,15 +160,18 @@ def CG(f, grad, x0, e=0.001, print_grad=1, print_dif=0, visualize=0, max_iter=20
         if print_dif == 1:
             print(np.linalg.norm(xcur - xprev))
         if print_grad == 1:
-            print(np.linalg.norm(dk))
+            print(np.abs(f(xcur)-f(xprev))/np.abs(f(xcur)))
         if visualize != 0 and k % visualize == 0:
             plt.title(str(k) + " iteration")
             plt.imshow(xcur, cmap='gray')
             plt.show()
 
+        if (np.abs(f(xcur)-f(xprev))/np.abs(f(xcur)) <= e) and k>1:
+        #if (np.abs(f(xcur)))<e*(1+np.abs(f(xcur))):
+            break
+
     print(k)
     return xcur, res
-
 
 if __name__=='__main__':
     def rosenbrock(X):
@@ -191,8 +196,8 @@ if __name__=='__main__':
     # Пример использования функции и её градиента
     x0 = np.random.rand(5, 5) * 2 - 1  # Начальная точка в диапазоне [-1, 1]
 
-    # Запуск метода сопряжённых градиентов
-    result, residuals = CG(rosenbrock, rosenbrock_grad, x0, method='BKY',e=0.5)
+
+    result, residuals = CG(rosenbrock, rosenbrock_grad, x0, method='BKS',e=0.5)
     print(result)
     print(rosenbrock(result))
 
