@@ -1,8 +1,9 @@
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+import math
 
-
+from scipy.interpolate import RectBivariateSpline
 def polynomial_fit(x, y, degree):
     """
     Функция для полиномиальной аппроксимации методом наименьших квадратов.
@@ -12,7 +13,9 @@ def polynomial_fit(x, y, degree):
     :return: Коэффициенты полинома.
     """
     coeffs = np.polyfit(x, y, degree)
+
     return np.poly1d(coeffs)
+
 
 
 def remove_illumination_gradient(image, degree=3):
@@ -46,6 +49,8 @@ def remove_illumination_gradient(image, degree=3):
         image[i] = np.clip(image[i], 0, 255)
 
     return image.astype(np.uint8)
+
+
 
 def cart2polar(x, y):
     """
@@ -86,18 +91,30 @@ def remove_illumination_gradient_radial(image, degree=3):
     phi, rho = cart2polar(x - center_x, y - center_y)
     diameter = 2 * rho  # Преобразование радиуса в диаметр
 
-    # Создание массива для хранения обработанного изображения
-    processed_image = np.zeros_like(image)
-    processed_mask = np.zeros_like(image, dtype=bool)  # Маска для отслеживания обработанных пикселей
+    # Списки для хранения данных для аппроксимации
+    all_diameters = []
+    all_avg_intensities = []
+    all_intensity_ranges = []
+
+    # Маска для уже использованных пикселей
+    used_mask = np.zeros_like(image, dtype=bool)
 
     # Обработка каждого угла
-    for angle in range(-180, 6, 6):  # Увеличиваем шаг для ускорения
+    step = 10
+    for angle in range(-180, 180, step):  # Увеличиваем шаг для ускорения
         # Выбор пикселей, соответствующих текущему углу и его симметричному углу
         angle_rad = np.deg2rad(angle)
-        const_angle=3
+        const_angle = step / 2
         mask = (phi >= angle_rad - np.deg2rad(const_angle)) & (phi < angle_rad + np.deg2rad(const_angle))
         mask |= (phi >= (angle_rad + np.pi - np.deg2rad(const_angle))) & (phi < (angle_rad + np.pi + np.deg2rad(const_angle)))
-        mask &= ~processed_mask  # Исключаем уже обработанные пиксели
+
+        # Добавление пикселей из центра
+        center_radius = 5  # Радиус вокруг центра, который будет включен
+        center_mask = (x - center_x)**2 + (y - center_y)**2 <= center_radius**2
+        mask |= center_mask
+
+        # Исключение уже использованных пикселей
+        mask &= ~used_mask
 
         line_pixels = image[mask]
         line_diameter = diameter[mask]
@@ -105,37 +122,77 @@ def remove_illumination_gradient_radial(image, degree=3):
         if len(line_pixels) == 0:
             continue
 
-        # Полиномиальная аппроксимация
+        # Средние интенсивности и диапазоны интенсивностей
         avg_intensities = np.array([np.mean(line_pixels[line_diameter == d]) for d in np.unique(line_diameter)])
         intensity_ranges = np.array([np.max(line_pixels[line_diameter == d]) - np.min(line_pixels[line_diameter == d]) for d in np.unique(line_diameter)])
         unique_diameter = np.unique(line_diameter)
-        P_avg = polynomial_fit(unique_diameter, avg_intensities, degree)
-        P_range = polynomial_fit(unique_diameter, intensity_ranges, degree)
 
-        # Обработка каждого пикселя на радиальной линии
-        for i in range(len(line_pixels)):
-            range_val = P_range(line_diameter[i])
-            avg_val = P_avg(line_diameter[i])
+        # Добавление данных для аппроксимации
+        all_diameters.extend(unique_diameter)
+        all_avg_intensities.extend(avg_intensities)
+        all_intensity_ranges.extend(intensity_ranges)
+
+        # Обновление маски для уже использованных пикселей
+        used_mask |= mask
+
+    # Преобразование списков в массивы
+    all_diameters = np.array(all_diameters)
+    all_avg_intensities = np.array(all_avg_intensities)
+    all_intensity_ranges = np.array(all_intensity_ranges)
+
+    # Полиномиальная аппроксимация
+    P_avg = polynomial_fit(all_diameters, all_avg_intensities, degree)
+    P_range = polynomial_fit(all_diameters, all_intensity_ranges, degree)
+
+    # Обработка каждого пикселя на радиальной линии
+    for i in range(height):
+        for j in range(width):
+            range_val = P_range(diameter[i, j])
+            avg_val = P_avg(diameter[i, j])
             min_val = avg_val - range_val / 2
             interval = range_val / 256
 
             # Преобразование интенсивностей
-            line_pixels[i] = (line_pixels[i] - min_val) / interval
-            line_pixels[i] = np.clip(line_pixels[i], 0, 255)
+            image[i, j] = (image[i, j] - min_val) / interval
+            image[i, j] = np.clip(image[i, j], 0, 255)
 
-        # Обновление обработанного изображения
-        processed_image[mask] = line_pixels
-        processed_mask[mask] = True  # Помечаем обработанные пиксели
+    return image.astype(np.uint8)
 
-    return processed_image.astype(np.uint8)
 
-def remove_illumination_gradient_lowpass(image, kernel_size=(51, 51)):
+
+def gaussian_kernel(size, sigma):
+    kernel = np.zeros((size, size))
+    center = size // 2
+    sum_val = 0.0
+    for i in range(size):
+        for j in range(size):
+            x, y = i - center, j - center
+            kernel[i, j] = math.exp(-(x**2 + y**2) / (2 * sigma**2))
+            sum_val += kernel[i, j]
+    kernel /= sum_val  # Нормализация ядра
+    return kernel
+
+def apply_gaussian_blur(image, kernel_size, sigma):
+    kernel = gaussian_kernel(kernel_size, sigma)
+    pad_size = kernel_size // 2
+    padded_image = np.pad(image, ((pad_size, pad_size), (pad_size, pad_size)), mode='reflect')
+    blurred_image = np.zeros_like(image)
+
+    for i in range(pad_size, padded_image.shape[0] - pad_size):
+        for j in range(pad_size, padded_image.shape[1] - pad_size):
+            region = padded_image[i-pad_size:i+pad_size+1, j-pad_size:j+pad_size+1]
+            blurred_image[i-pad_size, j-pad_size] = np.sum(region * kernel)
+
+    return blurred_image
+
+def remove_illumination_gradient_lowpass(image, kernel_size=51):
 
 
 
     image = image.astype(np.float32)
 
-    low_pass_image = cv2.GaussianBlur(image, kernel_size,sigmaX=0)#если sigmaX=0: sigma = 0.3*((ksize-1)*0.5 - 1) + 0.8
+    #low_pass_image = cv2.GaussianBlur(image, kernel_size,sigmaX=0)#если sigmaX=0: sigma = 0.3*((ksize-1)*0.5 - 1) + 0.8
+    low_pass_image=apply_gaussian_blur(image, kernel_size, sigma=0.3*((kernel_size-1)*0.5 - 1) + 0.8)
     corrected_image = image - low_pass_image
     corrected_image = cv2.normalize(corrected_image, None, 0, 255, cv2.NORM_MINMAX)
 
@@ -193,10 +250,50 @@ def build_graph(image, degree=3):
         plt.show()
 
 
+
+def remove_illumination_gradient_2d(img):
+    image = img.copy()
+
+    height, width = image.shape
+    block_x = 40  # Размер блока по оси X
+    block_y = 20  # Размер блока по оси Y
+
+    # Вычисление средних интенсивностей и диапазонов для каждого блока
+    avg_intensities = np.zeros((height // block_y + 1, width // block_x + 1))
+    ranges = np.zeros((height // block_y + 1, width // block_x + 1))
+
+    for i in range(0, height, block_y):
+        for j in range(0, width, block_x):
+            block = image[i:i + block_y, j:j + block_x]
+            if block.size > 0:  # Проверка, что блок не пустой
+                avg_intensities[i // block_y, j // block_x] = np.mean(block)
+                ranges[i // block_y, j // block_x] = np.max(block) - np.min(block)
+
+    # Создание сетки для бивариантного сплайна
+    x = np.arange(0, width, block_x)
+    y = np.arange(0, height, block_y)
+
+    # Построение бивариантного сплайна для средних интенсивностей и диапазонов
+    spline_avg = RectBivariateSpline(y, x, avg_intensities[:len(y), :len(x)])
+    spline_range = RectBivariateSpline(y, x, ranges[:len(y), :len(x)])
+
+    # Трансформация изображения
+    for i in range(height):
+        for j in range(width):
+            avg = spline_avg(i, j)[0][0]
+            range_val = spline_range(i, j)[0][0]
+            min_val = avg - range_val / 2
+            interval = range_val / 256
+            intensity = image[i, j]
+            new_intensity = (intensity - min_val) / interval
+            image[i, j] = np.clip(new_intensity, 0, 255)
+
+    return image
+
 # Пример использования
 if __name__ == "__main__":
     # Загрузка изображения
-    image_path = 'images/ips F055 p28 72h 11.tif'
+    image_path = 'images/W0001F0001T0012Z001C1.tif'
     image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
     #image=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
     image = cv2.resize(image, (500, 400))
@@ -206,7 +303,7 @@ if __name__ == "__main__":
     # Удаление градиента освещения
 
     #image_new=cv2.equalizeHist(image.astype(np.uint8))
-    processed_image = remove_illumination_gradient_lowpass(image)
+    processed_image = remove_illumination_gradient_2d(image)
     #build_graph(image)
 
     # Отображение результатов
@@ -220,5 +317,5 @@ if __name__ == "__main__":
     plt.title('Processed Image')
     plt.imshow(processed_image, cmap='gray')
 
-    cv2.imwrite('images/processed_image_grad_rad.tif',processed_image)
+    #cv2.imwrite('images/processed_image_grad_rad.tif',processed_image)
     plt.show()
