@@ -18,38 +18,57 @@ def polynomial_fit(x, y, degree):
 
 
 
-def remove_illumination_gradient(image, degree=3):
+def remove_illumination_gradient(image, degree=3, axis=0):
     """
     Функция для удаления градиента освещения в изображении.
     :param image: Входное изображение в формате 16-бит.
     :param degree: Степень полинома для аппроксимации.
+    :param axis: Ось для удаления градиента (0 - строки, 1 - столбцы).
     :return: Обработанное изображение.
     """
     # Преобразование изображения в формат float для удобства вычислений
     image = image.astype(np.float32)
 
-    # Построение наборов значений для аппроксимации
-    lines = np.arange(image.shape[0])
-    avg_intensities = np.mean(image, axis=1)
-    intensity_ranges = np.max(image, axis=1) - np.min(image, axis=1)
+    if axis == 0:
+        # Построение наборов значений для аппроксимации по строкам
+        lines = np.arange(image.shape[0])
+        avg_intensities = np.mean(image, axis=1)
+        intensity_ranges = np.max(image, axis=1) - np.min(image, axis=1)
+    elif axis == 1:
+        # Построение наборов значений для аппроксимации по столбцам
+        lines = np.arange(image.shape[1])
+        avg_intensities = np.mean(image, axis=0)
+        intensity_ranges = np.max(image, axis=0) - np.min(image, axis=0)
+    else:
+        raise ValueError("axis должен быть 0 или 1")
 
     # Полиномиальная аппроксимация
     P_avg = polynomial_fit(lines, avg_intensities, degree)
     P_range = polynomial_fit(lines, intensity_ranges, degree)
 
-    # Обработка каждой строки изображения
-    for i in range(image.shape[0]):
-        range_val = P_range(i)
-        avg_val = P_avg(i)
-        min_val = avg_val - range_val / 2
-        interval = range_val / 256
+    # Обработка каждой строки или столбца изображения
+    if axis == 0:
+        for i in range(image.shape[0]):
+            range_val = P_range(i)
+            avg_val = P_avg(i)
+            min_val = avg_val - range_val / 2
+            interval = range_val / 256
 
-        # Преобразование интенсивностей
-        image[i] = (image[i] - min_val) / interval
-        image[i] = np.clip(image[i], 0, 255)
+            # Преобразование интенсивностей
+            image[i] = (image[i] - min_val) / interval
+            image[i] = np.clip(image[i], 0, 255)
+    elif axis == 1:
+        for j in range(image.shape[1]):
+            range_val = P_range(j)
+            avg_val = P_avg(j)
+            min_val = avg_val - range_val / 2
+            interval = range_val / 256
+
+            # Преобразование интенсивностей
+            image[:, j] = (image[:, j] - min_val) / interval
+            image[:, j] = np.clip(image[:, j], 0, 255)
 
     return image.astype(np.uint8)
-
 
 
 def cart2polar(x, y):
@@ -101,7 +120,7 @@ def remove_illumination_gradient_radial(image, degree=3):
 
     # Обработка каждого угла
     step = 10
-    for angle in range(-180, 180, step):  # Увеличиваем шаг для ускорения
+    for angle in range(-180, 0, step):  # Увеличиваем шаг для ускорения
         # Выбор пикселей, соответствующих текущему углу и его симметричному углу
         angle_rad = np.deg2rad(angle)
         const_angle = step / 2
@@ -255,8 +274,8 @@ def remove_illumination_gradient_2d(img):
     image = img.copy()
 
     height, width = image.shape
-    block_x = 40  # Размер блока по оси X
-    block_y = 20  # Размер блока по оси Y
+    block_x = 80  # Размер блока по оси X
+    block_y = 40  # Размер блока по оси Y
 
     # Вычисление средних интенсивностей и диапазонов для каждого блока
     avg_intensities = np.zeros((height // block_y + 1, width // block_x + 1))
@@ -274,8 +293,8 @@ def remove_illumination_gradient_2d(img):
     y = np.arange(0, height, block_y)
 
     # Построение бивариантного сплайна для средних интенсивностей и диапазонов
-    spline_avg = RectBivariateSpline(y, x, avg_intensities[:len(y), :len(x)])
-    spline_range = RectBivariateSpline(y, x, ranges[:len(y), :len(x)])
+    spline_avg = RectBivariateSpline(y, x, avg_intensities[:len(y), :len(x)],s=0)
+    spline_range = RectBivariateSpline(y, x, ranges[:len(y), :len(x)],s=0)
 
     # Трансформация изображения
     for i in range(height):
@@ -290,32 +309,52 @@ def remove_illumination_gradient_2d(img):
 
     return image
 
+
+def plot_histogram(image):
+    plt.figure(figsize=(15, 10))
+    plt.hist(image.ravel(), bins=256, color='purple', alpha=0.7)
+    plt.title('Histogram of the Whole Image')
+    plt.xlabel('Intensity')
+    plt.ylabel('Frequency')
+
 # Пример использования
 if __name__ == "__main__":
     # Загрузка изображения
-    image_path = 'images/W0001F0001T0012Z001C1.tif'
+    image_path = 'images/ips 677 p15 96h 5 bad (2).tif'
     image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
-    #image=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
-    image = cv2.resize(image, (500, 400))
+    image=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+    #image = cv2.resize(image, (500, 400))
 
 
     #processed_image = cv2.equalizeHist(image)
     # Удаление градиента освещения
 
-    #image_new=cv2.equalizeHist(image.astype(np.uint8))
-    processed_image = remove_illumination_gradient_2d(image)
-    #build_graph(image)
+    image_orig = cv2.equalizeHist(image.astype(np.uint8))
 
+    processed_image = remove_illumination_gradient_2d(image_orig)
+
+
+    image_new = cv2.equalizeHist(processed_image.astype(np.uint8))
     # Отображение результатов
-    #print(image.astype(np.uint8))
     plt.title('Original Image')
     plt.imshow(image, cmap='gray')
     plt.show()
 
+    plt.title('orig Image hist')
+    plt.imshow(image_orig, cmap='gray')
+    plt.show()
 
+    plt.title('proccesed Image hist')
+    plt.imshow(image_new, cmap='gray')
+    plt.show()
 
     plt.title('Processed Image')
     plt.imshow(processed_image, cmap='gray')
 
-    #cv2.imwrite('images/processed_image_grad_rad.tif',processed_image)
+    plot_histogram(processed_image)
+    plot_histogram(image_orig)
+
+    cv2.imwrite('images/report_il_grad_2d.png',processed_image.astype(np.uint8))
+
+    cv2.imwrite('images/report_il_grad_hist_2d.png',image_orig.astype(np.uint8))
     plt.show()
