@@ -272,29 +272,32 @@ def build_graph(image, degree=3):
 
 def remove_illumination_gradient_2d(img):
     image = img.copy()
-
+    image = image.astype(np.float32)
     height, width = image.shape
-    block_x = 80  # Размер блока по оси X
-    block_y = 40  # Размер блока по оси Y
+    block_x = width//10
+    block_y = height//10
 
     # Вычисление средних интенсивностей и диапазонов для каждого блока
     avg_intensities = np.zeros((height // block_y + 1, width // block_x + 1))
     ranges = np.zeros((height // block_y + 1, width // block_x + 1))
 
-    for i in range(0, height, block_y):
-        for j in range(0, width, block_x):
+    for i in range(0, height+block_y, block_y):
+        for j in range(0, width+block_x, block_x):
             block = image[i:i + block_y, j:j + block_x]
-            if block.size > 0:  # Проверка, что блок не пустой
+            if block.size > 0:
                 avg_intensities[i // block_y, j // block_x] = np.mean(block)
                 ranges[i // block_y, j // block_x] = np.max(block) - np.min(block)
 
     # Создание сетки для бивариантного сплайна
-    x = np.arange(0, width, block_x)
-    y = np.arange(0, height, block_y)
+    x = np.arange(block_x//2, width, block_x)
+    y = np.arange(block_y//2, height, block_y)
+    #x = np.arange(block_x, width, block_x-np.floor(block_x**2/width))
+    #y = np.arange(block_y, height, block_y-np.floor(block_y**2/height))
 
     # Построение бивариантного сплайна для средних интенсивностей и диапазонов
-    spline_avg = RectBivariateSpline(y, x, avg_intensities[:len(y), :len(x)],s=0)
-    spline_range = RectBivariateSpline(y, x, ranges[:len(y), :len(x)],s=0)
+    k=3
+    spline_avg = RectBivariateSpline(y, x, avg_intensities[:len(y), :len(x)])
+    spline_range = RectBivariateSpline(y, x, ranges[:len(y), :len(x)])
 
     # Трансформация изображения
     for i in range(height):
@@ -302,12 +305,12 @@ def remove_illumination_gradient_2d(img):
             avg = spline_avg(i, j)[0][0]
             range_val = spline_range(i, j)[0][0]
             min_val = avg - range_val / 2
-            interval = range_val / 256
+            interval = range_val/256
             intensity = image[i, j]
             new_intensity = (intensity - min_val) / interval
             image[i, j] = np.clip(new_intensity, 0, 255)
 
-    return image
+    return image.astype(np.uint8)
 
 
 def plot_histogram(image):
@@ -321,6 +324,7 @@ def plot_histogram(image):
 if __name__ == "__main__":
     # Загрузка изображения
     image_path = 'images/ips 677 p15 96h 5 bad (2).tif'
+    #image_path = 'images/W0001F0001T0012Z001C1.tif'
     image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
     image=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
     #image = cv2.resize(image, (500, 400))
@@ -332,7 +336,7 @@ if __name__ == "__main__":
     image_orig = cv2.equalizeHist(image.astype(np.uint8))
 
     processed_image = remove_illumination_gradient_2d(image_orig)
-
+    #processed_image=remove_illumination_gradient_lowpass(processed_image)
 
     image_new = cv2.equalizeHist(processed_image.astype(np.uint8))
     # Отображение результатов
@@ -340,21 +344,10 @@ if __name__ == "__main__":
     plt.imshow(image, cmap='gray')
     plt.show()
 
-    plt.title('orig Image hist')
-    plt.imshow(image_orig, cmap='gray')
-    plt.show()
 
-    plt.title('proccesed Image hist')
-    plt.imshow(image_new, cmap='gray')
-    plt.show()
 
     plt.title('Processed Image')
     plt.imshow(processed_image, cmap='gray')
+    cv2.imwrite('images/removal_gradient3/start=0,5.png',processed_image)
 
-    plot_histogram(processed_image)
-    plot_histogram(image_orig)
-
-    cv2.imwrite('images/report_il_grad_2d.png',processed_image.astype(np.uint8))
-
-    cv2.imwrite('images/report_il_grad_hist_2d.png',image_orig.astype(np.uint8))
     plt.show()
