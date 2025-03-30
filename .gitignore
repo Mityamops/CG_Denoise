@@ -1,0 +1,12 @@
+
+*.vsidx
+*.png
+*.tif
+*.rar
+*.ipch
+*.tlog
+*.log
+*.iml
+*.xml
+*.pyc
+*.opendb
