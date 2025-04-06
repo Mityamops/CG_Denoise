@@ -1,4 +1,4 @@
-#include <opencv2/opencv.hpp>
+ï»¿#include <opencv2/opencv.hpp>
 #include <iostream>
 #include <functional>
 #include <cmath>
@@ -10,8 +10,8 @@ using namespace std;
 
 
 int main() {
-    // ×òåíèå èçîáðàæåíèÿ
-    string filename = "C:/Users/ìèòÿ/PycharmProjects/CG_Denoise/python/images/Lena_noise.png"; // Óêàæèòå ïóòü ê ôàéëó
+    // Ð§Ñ‚ÐµÐ½Ð¸Ðµ Ð¸Ð·Ð¾Ð±Ñ€Ð°Ð¶ÐµÐ½Ð¸Ñ
+    string filename = "C:/Users/Ð¼Ð¸Ñ‚Ñ/PycharmProjects/CG_Denoise/python/images/Lena_noise.png"; // Ð£ÐºÐ°Ð¶Ð¸Ñ‚Ðµ Ð¿ÑƒÑ‚ÑŒ Ðº Ñ„Ð°Ð¹Ð»Ñƒ
     Mat image = imread(filename, IMREAD_GRAYSCALE);
 
     if (image.empty()) {
@@ -19,16 +19,16 @@ int main() {
         return -1;
     }
 
-    // Ïðåîáðàçîâàíèå â òèï CV_32F
+    // ÐŸÑ€ÐµÐ¾Ð±Ñ€Ð°Ð·Ð¾Ð²Ð°Ð½Ð¸Ðµ Ð² Ñ‚Ð¸Ð¿ CV_32F
     image.convertTo(image, CV_32F);
 
-    // Èíèöèàëèçàöèÿ íà÷àëüíîãî ïðèáëèæåíèÿ
+    // Ð˜Ð½Ð¸Ñ†Ð¸Ð°Ð»Ð¸Ð·Ð°Ñ†Ð¸Ñ Ð½Ð°Ñ‡Ð°Ð»ÑŒÐ½Ð¾Ð³Ð¾ Ð¿Ñ€Ð¸Ð±Ð»Ð¸Ð¶ÐµÐ½Ð¸Ñ
     Mat x0 = Mat::zeros(image.size(), CV_32F);
 
-    // Ïàðàìåòð ðåãóëÿðèçàöèè
+    // ÐŸÐ°Ñ€Ð°Ð¼ÐµÑ‚Ñ€ Ñ€ÐµÐ³ÑƒÐ»ÑÑ€Ð¸Ð·Ð°Ñ†Ð¸Ð¸
     double mu = 0.05;
 
-    // Ëÿìáäà-ôóíêöèè äëÿ öåëåâîé ôóíêöèè è å¸ ãðàäèåíòà
+    // Ð›ÑÐ¼Ð±Ð´Ð°-Ñ„ÑƒÐ½ÐºÑ†Ð¸Ð¸ Ð´Ð»Ñ Ñ†ÐµÐ»ÐµÐ²Ð¾Ð¹ Ñ„ÑƒÐ½ÐºÑ†Ð¸Ð¸ Ð¸ ÐµÑ‘ Ð³Ñ€Ð°Ð´Ð¸ÐµÐ½Ñ‚Ð°
     auto objective = [&](const Mat& x) -> double {
         return tv_denoise_objective(x, mu, image);
         };
@@ -39,11 +39,9 @@ int main() {
 
     Mat denoised_image = CG(objective, gradient, x0,"FR");
     cout << objective(denoised_image) << endl;
-    // Ïðåîáðàçîâàíèå ðåçóëüòàòà â ôîðìàò CV_8U
+    // ÐŸÑ€ÐµÐ¾Ð±Ñ€Ð°Ð·Ð¾Ð²Ð°Ð½Ð¸Ðµ Ñ€ÐµÐ·ÑƒÐ»ÑŒÑ‚Ð°Ñ‚Ð° Ð² Ñ„Ð¾Ñ€Ð¼Ð°Ñ‚ CV_8U
     denoised_image.convertTo(denoised_image, CV_8U);
     
-    // Ñîõðàíåíèå ðåçóëüòàòà
     imwrite("denoised_image_gs.png", denoised_image);
-
     return 0;
 }

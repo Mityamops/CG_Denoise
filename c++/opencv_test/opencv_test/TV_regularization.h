@@ -1,4 +1,4 @@
-#pragma once
+п»ї#pragma once
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <functional>
@@ -6,7 +6,7 @@
 using namespace cv;
 using namespace std;
 
-// Определение ядер для градиента и его сопряженного оператора
+// РћРїСЂРµРґРµР»РµРЅРёРµ СЏРґРµСЂ РґР»СЏ РіСЂР°РґРёРµРЅС‚Р° Рё РµРіРѕ СЃРѕРїСЂСЏР¶РµРЅРЅРѕРіРѕ РѕРїРµСЂР°С‚РѕСЂР°
 extern Mat kernel_h;
 extern Mat kernel_v;
 extern Mat kernel_ht;

@@ -1,83 +1,83 @@
-#include <opencv2/opencv.hpp>
+п»ї#include <opencv2/opencv.hpp>
 #include <iostream>
 #include <functional>
 using namespace cv;
 using namespace std;
 
-// Ядра для градиентов
+// РЇРґСЂР° РґР»СЏ РіСЂР°РґРёРµРЅС‚РѕРІ
 Mat kernel_h = (Mat_<float>(1, 3) << 1, -1, 0);
 Mat kernel_v = (Mat_<float>(3, 1) << 1, -1, 0);
 Mat kernel_ht = (Mat_<float>(1, 3) << 0, -1, 1);
 Mat kernel_vt = (Mat_<float>(3, 1) << 0, -1, 1);
 
-// Градиент в горизонтальном направлении
+// Р“СЂР°РґРёРµРЅС‚ РІ РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅРѕРј РЅР°РїСЂР°РІР»РµРЅРёРё
 Mat gradh(const Mat& x) {
     Mat result;
-    filter2D(x, result, CV_32F, kernel_h, Point(-1, -1), 0, BORDER_REFLECT); // Циклические граничные условия
+    filter2D(x, result, CV_32F, kernel_h, Point(-1, -1), 0, BORDER_REFLECT); // Р¦РёРєР»РёС‡РµСЃРєРёРµ РіСЂР°РЅРёС‡РЅС‹Рµ СѓСЃР»РѕРІРёСЏ
     return result;
 }
 
-// Градиент в вертикальном направлении
+// Р“СЂР°РґРёРµРЅС‚ РІ РІРµСЂС‚РёРєР°Р»СЊРЅРѕРј РЅР°РїСЂР°РІР»РµРЅРёРё
 Mat gradv(const Mat& x) {
     Mat result;
-    filter2D(x, result, CV_32F, kernel_v, Point(-1, -1), 0, BORDER_REFLECT); // Циклические граничные условия
+    filter2D(x, result, CV_32F, kernel_v, Point(-1, -1), 0, BORDER_REFLECT); // Р¦РёРєР»РёС‡РµСЃРєРёРµ РіСЂР°РЅРёС‡РЅС‹Рµ СѓСЃР»РѕРІРёСЏ
     return result;
 }
 
-// Полный градиент
+// РџРѕР»РЅС‹Р№ РіСЂР°РґРёРµРЅС‚
 vector<Mat> grad2d(const Mat& x) {
     vector<Mat> result;
-    result.push_back(gradh(x)); // Горизонтальный градиент
-    result.push_back(gradv(x)); // Вертикальный градиент
+    result.push_back(gradh(x)); // Р“РѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅС‹Р№ РіСЂР°РґРёРµРЅС‚
+    result.push_back(gradv(x)); // Р’РµСЂС‚РёРєР°Р»СЊРЅС‹Р№ РіСЂР°РґРёРµРЅС‚
     return result;
 }
 
-// Сопряжённый горизонтальный градиент
+// РЎРѕРїСЂСЏР¶С‘РЅРЅС‹Р№ РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅС‹Р№ РіСЂР°РґРёРµРЅС‚
 Mat gradht(const Mat& x) {
     Mat result;
-    filter2D(x, result, CV_32F, kernel_ht, Point(-1, -1), 0, BORDER_REFLECT); // Циклические граничные условия
+    filter2D(x, result, CV_32F, kernel_ht, Point(-1, -1), 0, BORDER_REFLECT); // Р¦РёРєР»РёС‡РµСЃРєРёРµ РіСЂР°РЅРёС‡РЅС‹Рµ СѓСЃР»РѕРІРёСЏ
     return result;
 }
 
-// Сопряжённый вертикальный градиент
+// РЎРѕРїСЂСЏР¶С‘РЅРЅС‹Р№ РІРµСЂС‚РёРєР°Р»СЊРЅС‹Р№ РіСЂР°РґРёРµРЅС‚
 Mat gradvt(const Mat& x) {
     Mat result;
-    filter2D(x, result, CV_32F, kernel_vt, Point(-1, -1), 0, BORDER_REFLECT); // Циклические граничные условия
+    filter2D(x, result, CV_32F, kernel_vt, Point(-1, -1), 0, BORDER_REFLECT); // Р¦РёРєР»РёС‡РµСЃРєРёРµ РіСЂР°РЅРёС‡РЅС‹Рµ СѓСЃР»РѕРІРёСЏ
     return result;
 }
 
-// Дивергенция
+// Р”РёРІРµСЂРіРµРЅС†РёСЏ
 Mat divergence2d(const vector<Mat>& x) {
     return gradht(x[0]) + gradvt(x[1]);
 }
 
-// Гиперболическая аппроксимация L1 нормы
+// Р“РёРїРµСЂР±РѕР»РёС‡РµСЃРєР°СЏ Р°РїРїСЂРѕРєСЃРёРјР°С†РёСЏ L1 РЅРѕСЂРјС‹
 double hyperbolic(const Mat& z, double eps = 0.01) {
     Mat temp;
-    sqrt(z.mul(z) + eps * eps, temp); // Вычисление sqrt(z^2 + eps^2)
-    return sum(temp)[0]; // Сумма всех элементов
+    sqrt(z.mul(z) + eps * eps, temp); // Р’С‹С‡РёСЃР»РµРЅРёРµ sqrt(z^2 + eps^2)
+    return sum(temp)[0]; // РЎСѓРјРјР° РІСЃРµС… СЌР»РµРјРµРЅС‚РѕРІ
 }
 
-// Целевая функция TV-денойзинга
+// Р¦РµР»РµРІР°СЏ С„СѓРЅРєС†РёСЏ TV-РґРµРЅРѕР№Р·РёРЅРіР°
 double tv_denoise_objective(const Mat& x, double mu, const Mat& b) {
-    vector<Mat> grad_x = grad2d(x); // Вычисление градиента
-    double term1 = hyperbolic(grad_x[0]) + hyperbolic(grad_x[1]); // Гиперболическая аппроксимация
-    double term2 = 0.5 * mu * norm(x - b, NORM_L2); // L2 норма
+    vector<Mat> grad_x = grad2d(x); // Р’С‹С‡РёСЃР»РµРЅРёРµ РіСЂР°РґРёРµРЅС‚Р°
+    double term1 = hyperbolic(grad_x[0]) + hyperbolic(grad_x[1]); // Р“РёРїРµСЂР±РѕР»РёС‡РµСЃРєР°СЏ Р°РїРїСЂРѕРєСЃРёРјР°С†РёСЏ
+    double term2 = 0.5 * mu * norm(x - b, NORM_L2); // L2 РЅРѕСЂРјР°
 
     return term1 + term2;
 }
 
-// Градиент гиперболической аппроксимации
+// Р“СЂР°РґРёРµРЅС‚ РіРёРїРµСЂР±РѕР»РёС‡РµСЃРєРѕР№ Р°РїРїСЂРѕРєСЃРёРјР°С†РёРё
 Mat h_grad(const Mat& z, double eps = 0.01) {
     Mat temp;
-    sqrt(z.mul(z) + eps * eps, temp); // Вычисление sqrt(z^2 + eps^2)
+    sqrt(z.mul(z) + eps * eps, temp); // Р’С‹С‡РёСЃР»РµРЅРёРµ sqrt(z^2 + eps^2)
     return z / temp; // z / sqrt(z^2 + eps^2)
 }
 
-// Градиент целевой функции TV-денойзинга
+// Р“СЂР°РґРёРµРЅС‚ С†РµР»РµРІРѕР№ С„СѓРЅРєС†РёРё TV-РґРµРЅРѕР№Р·РёРЅРіР°
 Mat tv_denoise_grad(const Mat& x, double mu, const Mat& b) {
-    vector<Mat> grad_x = grad2d(x); // Вычисление градиента
-    Mat grad_h = h_grad(grad_x[0]); // Градиент по горизонтали
-    Mat grad_v = h_grad(grad_x[1]); // Градиент по вертикали
-    return divergence2d({ grad_h, grad_v }) + mu * (x - b); // Дивергенция + регуляризация
+    vector<Mat> grad_x = grad2d(x); // Р’С‹С‡РёСЃР»РµРЅРёРµ РіСЂР°РґРёРµРЅС‚Р°
+    Mat grad_h = h_grad(grad_x[0]); // Р“СЂР°РґРёРµРЅС‚ РїРѕ РіРѕСЂРёР·РѕРЅС‚Р°Р»Рё
+    Mat grad_v = h_grad(grad_x[1]); // Р“СЂР°РґРёРµРЅС‚ РїРѕ РІРµСЂС‚РёРєР°Р»Рё
+    return divergence2d({ grad_h, grad_v }) + mu * (x - b); // Р”РёРІРµСЂРіРµРЅС†РёСЏ + СЂРµРіСѓР»СЏСЂРёР·Р°С†РёСЏ
 }

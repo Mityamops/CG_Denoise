@@ -1,4 +1,4 @@
-#include <opencv2/opencv.hpp>
+п»ї#include <opencv2/opencv.hpp>
 #include <iostream>
 #include <functional>
 #include <cmath>
@@ -7,17 +7,17 @@
 using namespace cv;
 using namespace std;
 
-// L2 норма вектора
+
 double norm_2(const Mat& v) {
     return sqrt(v.dot(v));
 }
 
-// Метод золотого сечения для нахождения оптимального шага
+// РњРµС‚РѕРґ Р·РѕР»РѕС‚РѕРіРѕ СЃРµС‡РµРЅРёСЏ РґР»СЏ РЅР°С…РѕР¶РґРµРЅРёСЏ РѕРїС‚РёРјР°Р»СЊРЅРѕРіРѕ С€Р°РіР°
 double golden_section_search(
     const function<double(double)>& func,
     double a, double b, double tol 
 ) {
-    const double phi = (sqrt(5) - 1) / 2; // Золотое сечение
+    const double phi = (sqrt(5) - 1) / 2;
     double c = b - phi * (b - a);
     double d = a + phi * (b - a);
 
@@ -41,24 +41,24 @@ double brent_search(
     const std::function<double(double)>& func,
     double a, double b, double tol = 1e-3
 ) {
-    const double golden_ratio = (std::sqrt(5.0) - 1.0) / 2.0; // Золотое сечение
-    const double eps = 1e-10; // Защита от деления на ноль
+    const double golden_ratio = (std::sqrt(5.0) - 1.0) / 2.0; // Р—РѕР»РѕС‚РѕРµ СЃРµС‡РµРЅРёРµ
+    const double eps = 1e-10; // Р—Р°С‰РёС‚Р° РѕС‚ РґРµР»РµРЅРёСЏ РЅР° РЅРѕР»СЊ
 
-    double x = a + golden_ratio * (b - a); // Первое пробное значение
-    double w = x; // Точка с минимальным значением функции
-    double v = w; // Предыдущая точка
-    double fx = func(x); // Значение функции в x
-    double fw = fx; // Минимальное значение функции
+    double x = a + golden_ratio * (b - a); // РџРµСЂРІРѕРµ РїСЂРѕР±РЅРѕРµ Р·РЅР°С‡РµРЅРёРµ
+    double w = x; // РўРѕС‡РєР° СЃ РјРёРЅРёРјР°Р»СЊРЅС‹Рј Р·РЅР°С‡РµРЅРёРµРј С„СѓРЅРєС†РёРё
+    double v = w; // РџСЂРµРґС‹РґСѓС‰Р°СЏ С‚РѕС‡РєР°
+    double fx = func(x); // Р—РЅР°С‡РµРЅРёРµ С„СѓРЅРєС†РёРё РІ x
+    double fw = fx; // РњРёРЅРёРјР°Р»СЊРЅРѕРµ Р·РЅР°С‡РµРЅРёРµ С„СѓРЅРєС†РёРё
     double fv = fw;
 
-    double d = b - a; // Расстояние между a и b
-    double e = d; // Предыдущее расстояние
+    double d = b - a; // Р Р°СЃСЃС‚РѕСЏРЅРёРµ РјРµР¶РґСѓ a Рё b
+    double e = d; // РџСЂРµРґС‹РґСѓС‰РµРµ СЂР°СЃСЃС‚РѕСЏРЅРёРµ
 
     while (std::abs(b - a) > tol) {
         double midpoint = (a + b) / 2.0;
         double tolerance = tol * std::abs(x) + eps;
 
-        // Проверка условия остановки
+        // РџСЂРѕРІРµСЂРєР° СѓСЃР»РѕРІРёСЏ РѕСЃС‚Р°РЅРѕРІРєРё
         if (std::abs(x - midpoint) <= tolerance) {
             break;
         }
@@ -67,7 +67,7 @@ double brent_search(
         double u = 0.0;
 
         if (std::abs(e) > tolerance) {
-            // Параболическая интерполяция
+            // РџР°СЂР°Р±РѕР»РёС‡РµСЃРєР°СЏ РёРЅС‚РµСЂРїРѕР»СЏС†РёСЏ
             r = (x - w) * (fx - fv);
             q = (x - v) * (fx - fw);
             p = (x - v) * q - (x - w) * r;
@@ -81,33 +81,33 @@ double brent_search(
             double e_temp = e;
             e = d;
 
-            // Принятие параболической интерполяции
+            // РџСЂРёРЅСЏС‚РёРµ РїР°СЂР°Р±РѕР»РёС‡РµСЃРєРѕР№ РёРЅС‚РµСЂРїРѕР»СЏС†РёРё
             if (std::abs(p) < std::abs(0.5 * q * e_temp) && p > q * (a - x) && p < q * (b - x)) {
                 d = p / q;
                 u = x + d;
 
-                // Защита от выхода за границы
+                // Р—Р°С‰РёС‚Р° РѕС‚ РІС‹С…РѕРґР° Р·Р° РіСЂР°РЅРёС†С‹
                 if ((u - a) < tolerance || (b - u) < tolerance) {
                     d = (x < midpoint) ? tolerance : -tolerance;
                 }
             }
             else {
-                // Использование золотого сечения
+                // РСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ Р·РѕР»РѕС‚РѕРіРѕ СЃРµС‡РµРЅРёСЏ
                 e = (x < midpoint) ? b - x : a - x;
                 d = golden_ratio * e;
             }
         }
         else {
-            // Использование золотого сечения
+            // РСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ Р·РѕР»РѕС‚РѕРіРѕ СЃРµС‡РµРЅРёСЏ
             e = (x < midpoint) ? b - x : a - x;
             d = golden_ratio * e;
         }
 
-        // Выбор нового значения x
+        // Р’С‹Р±РѕСЂ РЅРѕРІРѕРіРѕ Р·РЅР°С‡РµРЅРёСЏ x
         u = (std::abs(d) >= tolerance) ? x + d : x + ((d > 0.0) ? tolerance : -tolerance);
         double fu = func(u);
 
-        // Обновление границ
+        // РћР±РЅРѕРІР»РµРЅРёРµ РіСЂР°РЅРёС†
         if (fu <= fx) {
             if (u >= x) {
                 a = x;
@@ -154,8 +154,8 @@ Mat CG(
     double tol
 ) {
     Mat xcur = x0.clone();
-    Mat g_k = grad(x0); // Начальный градиент
-    Mat pk = -g_k;      // Начальное направление
+    Mat g_k = grad(x0); // РќР°С‡Р°Р»СЊРЅС‹Р№ РіСЂР°РґРёРµРЅС‚
+    Mat pk = -g_k;      // РќР°С‡Р°Р»СЊРЅРѕРµ РЅР°РїСЂР°РІР»РµРЅРёРµ
     Mat prevgrad = g_k.clone();
     Mat xprev;
 
@@ -167,8 +167,8 @@ Mat CG(
     for (int k = 0; k < max_iters; ++k) {
 
         //cout << (f(xcur)) << endl;
-        // Обновление направления поиска
-        if (k % (x0.total()) == 0) { // Для методов с периодическим обнуление
+        // РћР±РЅРѕРІР»РµРЅРёРµ РЅР°РїСЂР°РІР»РµРЅРёСЏ РїРѕРёСЃРєР°
+        if (k % (x0.total()) == 0) { // Р”Р»СЏ РјРµС‚РѕРґРѕРІ СЃ РїРµСЂРёРѕРґРёС‡РµСЃРєРёРј РѕР±РЅСѓР»РµРЅРёРµ
             pk = -g_k;
         }
         else {
@@ -201,7 +201,7 @@ Mat CG(
 
                 if (method == "BKY") {
                     double numerator = (f_curr_val - f_prev_val - 0.5 * sk.dot(yk))
-                        + yk.dot(g_k_curr) - sk.dot(g_k_prev); // g_k_prev = prevgrad
+                        + yk.dot(g_k_curr) - sk.dot(g_k_prev); 
                     double denominator = sk.dot(yk) + 1e-10;
                     double beta = numerator / denominator;
                     pk = -g_k_curr + beta * sk;
@@ -227,7 +227,7 @@ Mat CG(
             }
         }
 
-        // Линейный поиск
+        // Р›РёРЅРµР№РЅС‹Р№ РїРѕРёСЃРє
         auto line_func = [&](double a) { return f(xcur + a * pk); };
         step_size = golden_section_search(line_func, 0.0, 1000.0);
 
@@ -239,7 +239,7 @@ Mat CG(
         xprev = xcur.clone();
         xcur = xcur + step_size * pk;
 
-        // Обновление градиента и условий
+        // РћР±РЅРѕРІР»РµРЅРёРµ РіСЂР°РґРёРµРЅС‚Р° Рё СѓСЃР»РѕРІРёР№
         Mat g_k_new = grad(xcur);
         residuals.push_back(norm_2(g_k_new));
         
