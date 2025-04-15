@@ -1,4 +1,4 @@
-#include "illumination_gradient.h"
+п»ї#include "illumination_gradient.h"
 #include <cmath>
 #include <algorithm>
 
@@ -6,7 +6,7 @@ using namespace cv;
 using namespace std;
 using namespace Eigen;
 
-// Функция для полиномиальной аппроксимации методом наименьших квадратов
+// Р¤СѓРЅРєС†РёСЏ РґР»СЏ РїРѕР»РёРЅРѕРјРёР°Р»СЊРЅРѕР№ Р°РїРїСЂРѕРєСЃРёРјР°С†РёРё РјРµС‚РѕРґРѕРј РЅР°РёРјРµРЅСЊС€РёС… РєРІР°РґСЂР°С‚РѕРІ
 VectorXd polynomialFit(const VectorXd& x, const VectorXd& y, int degree) {
     int n = x.size();
     MatrixXd A(n, degree + 1);
@@ -19,7 +19,7 @@ VectorXd polynomialFit(const VectorXd& x, const VectorXd& y, int degree) {
     return coeffs;
 }
 
-// Основная функция для удаления градиента освещения
+// РћСЃРЅРѕРІРЅР°СЏ С„СѓРЅРєС†РёСЏ РґР»СЏ СѓРґР°Р»РµРЅРёСЏ РіСЂР°РґРёРµРЅС‚Р° РѕСЃРІРµС‰РµРЅРёСЏ
 Mat removeIlluminationGradient(const Mat& image, int degree, int axis) {
     Mat floatImage;
     image.convertTo(floatImage, CV_32F);
@@ -27,12 +27,12 @@ Mat removeIlluminationGradient(const Mat& image, int degree, int axis) {
     int rows = floatImage.rows;
     int cols = floatImage.cols;
 
-    // Вычисляем средние интенсивности и диапазоны
+    // Р’С‹С‡РёСЃР»СЏРµРј СЃСЂРµРґРЅРёРµ РёРЅС‚РµРЅСЃРёРІРЅРѕСЃС‚Рё Рё РґРёР°РїР°Р·РѕРЅС‹
     vector<float> avgIntensities;
     vector<float> intensityRanges;
     vector<float> lines;
 
-    if (axis == 0) { // Обработка по строкам
+    if (axis == 0) { // РћР±СЂР°Р±РѕС‚РєР° РїРѕ СЃС‚СЂРѕРєР°Рј
         for (int i = 0; i < rows; ++i) {
             Mat row = floatImage.row(i);
             Scalar meanVal = mean(row);
@@ -43,7 +43,7 @@ Mat removeIlluminationGradient(const Mat& image, int degree, int axis) {
             lines.push_back(i);
         }
     }
-    else if (axis == 1) { // Обработка по столбцам
+    else if (axis == 1) { // РћР±СЂР°Р±РѕС‚РєР° РїРѕ СЃС‚РѕР»Р±С†Р°Рј
         for (int j = 0; j < cols; ++j) {
             Mat col = floatImage.col(j);
             Scalar meanVal = mean(col);
@@ -58,7 +58,7 @@ Mat removeIlluminationGradient(const Mat& image, int degree, int axis) {
         throw invalid_argument("Axis must be 0 or 1");
     }
 
-    // Преобразуем данные в Eigen::VectorXd
+    // РџСЂРµРѕР±СЂР°Р·СѓРµРј РґР°РЅРЅС‹Рµ РІ Eigen::VectorXd
     VectorXd x(lines.size());
     VectorXd yAvg(avgIntensities.size());
     VectorXd yRange(intensityRanges.size());
@@ -69,14 +69,14 @@ Mat removeIlluminationGradient(const Mat& image, int degree, int axis) {
         yRange(i) = intensityRanges[i];
     }
 
-    // Полиномиальная аппроксимация
+    // РџРѕР»РёРЅРѕРјРёР°Р»СЊРЅР°СЏ Р°РїРїСЂРѕРєСЃРёРјР°С†РёСЏ
     VectorXd coeffsAvg = polynomialFit(x, yAvg, degree);
     VectorXd coeffsRange = polynomialFit(x, yRange, degree);
 
-    // Обработка изображения
+    // РћР±СЂР°Р±РѕС‚РєР° РёР·РѕР±СЂР°Р¶РµРЅРёСЏ
     Mat processedImage = floatImage.clone();
 
-    if (axis == 0) { // Обработка строк
+    if (axis == 0) { // РћР±СЂР°Р±РѕС‚РєР° СЃС‚СЂРѕРє
         for (int i = 0; i < rows; ++i) {
             double rangeVal = 0.0, avgVal = 0.0;
             for (int k = 0; k <= degree; ++k) {
@@ -87,7 +87,7 @@ Mat removeIlluminationGradient(const Mat& image, int degree, int axis) {
             double minVal = avgVal - rangeVal / 2.0;
             double interval = rangeVal / 256.0;
 
-            // Защита от малых интервалов
+            // Р—Р°С‰РёС‚Р° РѕС‚ РјР°Р»С‹С… РёРЅС‚РµСЂРІР°Р»РѕРІ
             if (interval < 1e-6) {
                 interval = 1.0;
             }
@@ -100,7 +100,7 @@ Mat removeIlluminationGradient(const Mat& image, int degree, int axis) {
             }
         }
     }
-    else if (axis == 1) { // Обработка столбцов
+    else if (axis == 1) { // РћР±СЂР°Р±РѕС‚РєР° СЃС‚РѕР»Р±С†РѕРІ
         for (int j = 0; j < cols; ++j) {
             double rangeVal = 0.0, avgVal = 0.0;
             for (int k = 0; k <= degree; ++k) {
@@ -111,7 +111,7 @@ Mat removeIlluminationGradient(const Mat& image, int degree, int axis) {
             double minVal = avgVal - rangeVal / 2.0;
             double interval = rangeVal / 256.0;
 
-            // Защита от малых интервалов
+            // Р—Р°С‰РёС‚Р° РѕС‚ РјР°Р»С‹С… РёРЅС‚РµСЂРІР°Р»РѕРІ
             if (interval < 1e-6) {
                 interval = 1.0;
             }
@@ -125,7 +125,7 @@ Mat removeIlluminationGradient(const Mat& image, int degree, int axis) {
         }
     }
 
-    // Преобразуем обратно в 8-битное изображение
+    // РџСЂРµРѕР±СЂР°Р·СѓРµРј РѕР±СЂР°С‚РЅРѕ РІ 8-Р±РёС‚РЅРѕРµ РёР·РѕР±СЂР°Р¶РµРЅРёРµ
     Mat result;
     processedImage.convertTo(result, CV_8U);
 
