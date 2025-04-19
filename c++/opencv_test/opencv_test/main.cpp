@@ -8,14 +8,23 @@
 using namespace cv;
 using namespace std;
 
-int denoise(int argc,char* argv[]) {
-    if (argc != 3) { // Проверка количества аргументов
-        cerr << "Usage: " << argv[0] << " input_image output_image" << endl;
+int denoise(int argc, char* argv[]) {
+    if (argc != 6) { // Теперь ожидаем 6 аргументов: имя программы, входное изображение, выходное изображение, max_iters, tol, method
+        cerr << "Usage: " << argv[0] << " input_image output_image max_iters tol method" << endl;
+        cerr << "Available methods: FR (Fletcher-Reeves), PR (Polak-Ribiere)" << endl;
         return -1;
     }
 
-    string input_filename = argv[1]; // Используем первый аргумент как входной файл
-    string output_filename = argv[2]; // Второй аргумент как выходной файл
+    string input_filename = argv[1]; // Входной файл
+    string output_filename = argv[2]; // Выходной файл
+
+    // Преобразуем аргументы командной строки в числа
+    int max_iters = atoi(argv[3]); // Максимальное число итераций
+    double tol = atof(argv[4]); // Точность
+    string method = argv[5]; // Метод оптимизации
+
+    
+
     // Чтение изображения
     Mat image = imread(input_filename, IMREAD_GRAYSCALE);
 
@@ -42,7 +51,8 @@ int denoise(int argc,char* argv[]) {
         return tv_denoise_grad(x, mu, image);
         };
 
-    Mat denoised_image = CG(objective, gradient, x0, "FR");
+    // Вызов метода CG с параметрами max_iters, tol и method
+    Mat denoised_image = CG(objective, gradient, x0, method, max_iters, tol);
     cout << "Objective function value: " << objective(denoised_image) << endl;
 
     // Преобразование результата в формат CV_8U
@@ -105,8 +115,8 @@ int illum_grad() {
 }
 
 int main(int argc, char* argv[]) { 
-    //int a = denoise(argc, argv);
-    int a = illum_grad();
+    int a = denoise(argc, argv);
+    //int a = illum_grad();
     return 0;
 }
 
