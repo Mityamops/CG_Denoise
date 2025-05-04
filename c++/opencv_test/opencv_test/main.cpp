@@ -5,25 +5,23 @@
 #include "TV_regularization.h"
 #include "gradient_methods.h"
 #include "illumination_gradient.h"
+
 using namespace cv;
 using namespace std;
 
 int denoise(int argc, char* argv[]) {
-    if (argc != 6) { // Теперь ожидаем 6 аргументов: имя программы, входное изображение, выходное изображение, max_iters, tol, method
-        cerr << "Usage: " << argv[0] << " input_image output_image max_iters tol method" << endl;
-        cerr << "Available methods: FR (Fletcher-Reeves), PR (Polak-Ribiere)" << endl;
+    if (argc != 7) { // Теперь ожидаем 7 аргументов: имя программы, метод, max_iters, tol, method, input_image, output_image
+        cerr << "Usage: " << argv[0] << " denoise max_iters tol method input_image output_image" << endl;
+        cerr << "Available methods: FR DY PR BKS BKY BKG" << endl;
         return -1;
     }
 
-    string input_filename = argv[1]; // Входной файл
-    string output_filename = argv[2]; // Выходной файл
-
     // Преобразуем аргументы командной строки в числа
-    int max_iters = atoi(argv[3]); // Максимальное число итераций
-    double tol = atof(argv[4]); // Точность
-    string method = argv[5]; // Метод оптимизации
-
-    
+    int max_iters = atoi(argv[2]); // Максимальное число итераций
+    double tol = atof(argv[3]); // Точность
+    string method = argv[4]; // Метод оптимизации
+    string input_filename = argv[5]; // Входной файл
+    string output_filename = argv[6]; // Выходной файл
 
     // Чтение изображения
     Mat image = imread(input_filename, IMREAD_GRAYSCALE);
@@ -68,10 +66,18 @@ int denoise(int argc, char* argv[]) {
     return 0;
 }
 
-int illum_grad() {
+int illum_grad(int argc, char* argv[]) {
+    if (argc != 5) { // Ожидаем 5 аргументов: имя программы, метод, block_size, input_image, output_image
+        cerr << "Usage: " << argv[0] << " illum_grad block_size input_image output_image" << endl;
+        return -1;
+    }
+
+    int block_size = atoi(argv[2]); // Размер блока
+    string input_filename = argv[3]; // Входной файл
+    string output_filename = argv[4]; // Выходной файл
+
     // Загрузка изображения
-    string imagePath = "C:/Users/митя/PycharmProjects/CG_Denoise/python/images/ipc 677 p16 MG (R) 12 bad.tif";
-    Mat image = imread(imagePath, IMREAD_UNCHANGED);
+    Mat image = imread(input_filename, IMREAD_UNCHANGED);
 
     if (image.empty()) {
         cerr << "Could not open or find the image!" << endl;
@@ -99,24 +105,46 @@ int illum_grad() {
     }
 
     // Удаление градиента освещения
-    Mat processedImage = removeIlluminationGradient(normalizedImage);
+    Mat processedImage = removeIlluminationGradient2D(normalizedImage, block_size);
 
-    // Сохранение и отображение результата
-    imwrite("inverted.png", processedImage);
+    // Сохранение результата в указанный выходной файл
+    if (!imwrite(output_filename, processedImage)) {
+        cerr << "Error: Could not save output image!" << endl;
+        return -1;
+    }
 
-    namedWindow("Original Image", WINDOW_NORMAL);
-    imshow("Original Image", normalizedImage);
+    cout << "Processed image saved to " << output_filename << endl;
 
-    namedWindow("Processed Image", WINDOW_NORMAL);
-    imshow("Processed Image", processedImage);
+    //// Отображение результата
+    //namedWindow("Original Image", WINDOW_NORMAL);
+    //imshow("Original Image", normalizedImage);
 
-    waitKey(0);
-    return 0;
+    //namedWindow("Processed Image", WINDOW_NORMAL);
+    //imshow("Processed Image", processedImage);
+
+    //waitKey(0);
+    //return 0;
 }
 
-int main(int argc, char* argv[]) { 
-    int a = denoise(argc, argv);
-    //int a = illum_grad();
-    return 0;
-}
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        cerr << "Usage: " << argv[0] << " [denoise|illum_grad] ..." << endl;
+        cerr << "For denoise: " << argv[0] << " denoise max_iters tol method input_image output_image" << endl;
+        cerr << "For illum_grad: " << argv[0] << " illum_grad block_size input_image output_image" << endl;
+        return -1;
+    }
 
+    string mode = argv[1];
+
+    if (mode == "denoise") {
+        return denoise(argc, argv);
+    }
+    else if (mode == "illum_grad") {
+        return illum_grad(argc, argv);
+    }
+    else {
+        cerr << "Unknown mode: " << mode << endl;
+        cerr << "Available modes: denoise, illum_grad" << endl;
+        return -1;
+    }
+}

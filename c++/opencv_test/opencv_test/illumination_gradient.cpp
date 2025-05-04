@@ -1,7 +1,8 @@
 ﻿#include "illumination_gradient.h"
 #include <cmath>
 #include <algorithm>
-
+#include <vector>
+#include <opencv2/opencv.hpp>
 using namespace cv;
 using namespace std;
 using namespace Eigen;
@@ -128,6 +129,114 @@ Mat removeIlluminationGradient(const Mat& image, int degree, int axis) {
     // Преобразуем обратно в 8-битное изображение
     Mat result;
     processedImage.convertTo(result, CV_8U);
+
+    return result;
+}
+
+double bilinearInterpolation(const vector<vector<double>>& grid, double x, double y) {
+    int nx = grid.size();
+    int ny = grid[0].size();
+
+    if (nx == 0 || ny == 0) {
+        return 0.0;
+    }
+
+    // Ограничение координат внутри границ сетки
+    x = std::max(0.0, std::min(x, static_cast<double>(nx - 1)));
+    y = std::max(0.0, std::min(y, static_cast<double>(ny - 1)));
+
+    int ix = static_cast<int>(x);
+    int iy = static_cast<int>(y);
+
+    double dx = x - ix;
+    double dy = y - iy;
+
+    double v11 = grid[iy][ix];
+    double v12 = grid[iy][min(ix + 1, nx - 1)];
+    double v21 = grid[min(iy + 1, ny - 1)][ix];
+    double v22 = grid[min(iy + 1, ny - 1)][min(ix + 1, nx - 1)];
+
+    double v1 = v11 * (1 - dx) + v12 * dx;
+    double v2 = v21 * (1 - dx) + v22 * dx;
+
+    return v1 * (1 - dy) + v2 * dy;
+}
+
+// Главная функция для удаления градиента освещения
+Mat removeIlluminationGradient2D(const Mat& image,int block_size) {
+    Mat floatImage;
+    image.convertTo(floatImage, CV_32F);
+
+    int height = floatImage.rows;
+    int width = floatImage.cols;
+
+    // Параметры блоков
+    int blockX = width / block_size;
+    int blockY = height / block_size;
+
+    // Расширение границ изображения с помощью зеркального отражения
+    Mat paddedImage;
+    copyMakeBorder(floatImage, paddedImage, blockY, blockY, blockX, blockX, BORDER_REFLECT);
+
+    height = paddedImage.rows;
+    width = paddedImage.cols;
+
+    // Вычисление средних интенсивностей и диапазонов для каждого блока
+    vector<vector<double>> avgIntensities(height / blockY, vector<double>(width / blockX, 0.0));
+    vector<vector<double>> ranges(height / blockY, vector<double>(width / blockX, 0.0));
+
+    for (int i = 0; i < height; i += blockY) {
+        for (int j = 0; j < width; j += blockX) {
+            Mat block = paddedImage(Rect(j, i, blockX, blockY));
+            Scalar meanVal = mean(block);
+            double minVal, maxVal;
+            minMaxLoc(block, &minVal, &maxVal);
+            avgIntensities[i / blockY][j / blockX] = meanVal[0];
+            ranges[i / blockY][j / blockX] = maxVal - minVal;
+        }
+    }
+
+    // Создание сетки для интерполяции
+    vector<double> xGrid(width / blockX);
+    vector<double> yGrid(height / blockY);
+
+    for (int i = 0; i < height / blockY; ++i) {
+        yGrid[i] = blockY * i + blockY / 2;
+    }
+    for (int j = 0; j < width / blockX; ++j) {
+        xGrid[j] = blockX * j + blockX / 2;
+    }
+
+    // Трансформация изображения
+    for (int i = 0; i < height; ++i) {
+        for (int j = 0; j < width; ++j) {
+            double avg = bilinearInterpolation(avgIntensities, j, i);
+            double rangeVal = bilinearInterpolation(ranges, j, i);
+            double minVal = avg - rangeVal / 2.0;
+            double interval = rangeVal / 256.0;
+
+            // Защита от малых интервалов
+            if (interval < 1e-6) {
+                interval = 1.0;
+            }
+
+            double intensity = paddedImage.at<float>(i, j);
+            double newIntensity = (intensity - minVal) / interval;
+
+            // Использование собственной функции clamp
+            auto clamp = [](double value, double minVal, double maxVal) {
+                return std::max(minVal, std::min(value, maxVal));
+                };
+
+            paddedImage.at<float>(i, j) = clamp(newIntensity, 0.0, 255.0);
+        }
+    }
+
+    // Удаление расширенных границ
+    Mat result = paddedImage(Range(blockY, height - blockY), Range(blockX, width - blockX));
+
+    // Преобразование обратно в 8-битное изображение
+    result.convertTo(result, CV_8U);
 
     return result;
 }
