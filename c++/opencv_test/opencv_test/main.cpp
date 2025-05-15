@@ -9,7 +9,7 @@
 using namespace cv;
 using namespace std;
 
-int denoise(int argc, char* argv[]) {
+int denoise(int argc, char* argv[]) { //"denoise" 1500 0.001 "FR" "C:/Users/митя/PycharmProjects/CG_Denoise/python/images/Lena_denoise.png" "C:/Users/митя/PycharmProjects/CG_Denoise/c++/den.png" 
     if (argc != 7) { // Теперь ожидаем 7 аргументов: имя программы, метод, max_iters, tol, method, input_image, output_image
         cerr << "Usage: " << argv[0] << " denoise max_iters tol method input_image output_image" << endl;
         cerr << "Available methods: FR DY PR BKS BKY BKG" << endl;
@@ -50,7 +50,7 @@ int denoise(int argc, char* argv[]) {
         };
 
     // Вызов метода CG с параметрами max_iters, tol и method
-    Mat denoised_image = CG(objective, gradient, x0, method, max_iters, tol);
+    Mat denoised_image = CG(objective, gradient, image, method, max_iters, tol);
     cout << "Objective function value: " << objective(denoised_image) << endl;
 
     // Преобразование результата в формат CV_8U
@@ -115,15 +115,7 @@ int illum_grad(int argc, char* argv[]) {
 
     cout << "Processed image saved to " << output_filename << endl;
 
-    //// Отображение результата
-    //namedWindow("Original Image", WINDOW_NORMAL);
-    //imshow("Original Image", normalizedImage);
-
-    //namedWindow("Processed Image", WINDOW_NORMAL);
-    //imshow("Processed Image", processedImage);
-
-    //waitKey(0);
-    //return 0;
+    
 }
 
 int main(int argc, char* argv[]) {
