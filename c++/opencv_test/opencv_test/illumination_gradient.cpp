@@ -210,8 +210,15 @@ Mat removeIlluminationGradient2D(const Mat& image,int block_size) {
     // Трансформация изображения
     for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
-            double avg = bilinearInterpolation(avgIntensities, j, i);
-            double rangeVal = bilinearInterpolation(ranges, j, i);
+            // Преобразование координат пикселей в координаты блоков
+            double blockXCoord = static_cast<double>(j) ;
+            double blockYCoord = static_cast<double>(i) ;
+
+            // Интерполяция средней интенсивности и диапазона
+            double avg = bilinearInterpolation(avgIntensities, blockXCoord, blockYCoord);
+            double rangeVal = bilinearInterpolation(ranges, blockXCoord, blockYCoord);
+
+            // Вычисление минимального значения и интервала
             double minVal = avg - rangeVal / 2.0;
             double interval = rangeVal / 256.0;
 
@@ -220,6 +227,7 @@ Mat removeIlluminationGradient2D(const Mat& image,int block_size) {
                 interval = 1.0;
             }
 
+            // Корректировка интенсивности
             double intensity = paddedImage.at<float>(i, j);
             double newIntensity = (intensity - minVal) / interval;
 
