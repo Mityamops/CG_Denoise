@@ -149,110 +149,128 @@ Mat CG(
     const function<double(const Mat&)>& f,
     const function<Mat(const Mat&)>& grad,
     const Mat& x0,
-    const string& method ,
+    const string& method,
     int max_iters,
     double tol
 ) {
-    Mat xcur = x0.clone();
-    Mat g_k = grad(x0); // Начальный градиент
-    Mat pk = -g_k;      // Начальное направление
-    Mat prevgrad = g_k.clone();
-    Mat xprev;
+    Mat x = x0.clone();          // Текущая точка x_k
+    Mat g = grad(x);             // Градиент в x_k
+    Mat p = -g;                  // Начальное направление поиска
+    double f_val = f(x);         // Значение функции в x_k
 
-    double step_size = 1.0;
-    const double min_step_size = 1e-10;
-    double f_prev = f(xcur);
-    vector<double> residuals = { norm_2(g_k) };
+    const double min_step = 1e-10;
+    const int restart_period = static_cast<int>(sqrt(x0.total())); // Период рестарта
 
     for (int k = 0; k < max_iters; ++k) {
+        // === 1. Линейный поиск шага α_k ===
+        auto phi = [&](double alpha) {
+            return f(x + alpha * p);
+            };
+        double alpha = golden_section_search(phi, 0.0, 1.0, 1e-4);
 
-        //cout << (f(xcur)) << endl;
-        // Обновление направления поиска
-        if (k % (x0.total()) == 0) { // Для методов с периодическим обнуление
-            pk = -g_k;
+        if (alpha < min_step) {
+            cerr << "Warning: Step size too small (" << alpha << "), stopping at iteration " << k << endl;
+            break;
+        }
+
+        // === 2. Обновление точки: x_{k+1} = x_k + α_k * p_k ===
+        Mat x_new = x + alpha * p;
+        Mat g_new = grad(x_new);      // Градиент в новой точке
+        double f_new = f(x_new);      // Значение функции в новой точке
+
+        // === 3. Вычисление векторов s_k и y_k ===
+        Mat s = alpha * p;            // s_k = x_{k+1} - x_k
+        Mat y = g_new - g;            // y_k = g_{k+1} - g_k
+
+        // === 4. Проверка сходимости 
+        double grad_norm = norm_2(g_new);
+        if (k > 2) {
+            double rel_change = fabs(f_new - f_val) / (fabs(f_val) + 1e-10);
+            double abs_threshold = 1e-4 * fabs(f(x0)); 
+
+            if (rel_change <= 1e-4 && fabs(f_new) <= abs_threshold) {
+                cout << "Converged  at iteration " << k
+                    << ": rel_change=" << rel_change << ", |f|=" << fabs(f_new) << endl;
+                return x_new;
+            }
+        }
+
+        // === 5. Вычисление коэффициента β_{k+1} ===
+        double beta = 0.0;
+        double sTy = s.dot(y);
+        double sTg = s.dot(g);
+        double yTg_new = y.dot(g_new);
+        double g_norm2 = g.dot(g);
+
+        if (fabs(sTy) < 1e-8) {
+            beta = 0.0; 
+           
+        }
+        else if (method == "FR") {
+            beta = g_new.dot(g_new) / (g_norm2 + 1e-10);
+        }
+        else if (method == "PR") {
+            beta = y.dot(g_new) / (g_norm2 + 1e-10);
+        }
+        else if (method == "DY") {
+            beta = g_new.dot(g_new) / (p.dot(y) + 1e-10);
+        }
+        else if (method == "BKY") {
+            double term1 = (f_new - f_val - 0.5 * sTy) / sTy;
+            double term2 = yTg_new / sTy;
+            double term3 = -sTg / sTy;
+            beta = term1 + term2 + term3;
+        }
+        else if (method == "BKS") {
+            double term1 = (f_new - f_val + 0.5 * sTg) / sTy;
+            double term2 = yTg_new / sTy;
+            double term3 = -sTg / sTy;
+            beta = term1 + term2 + term3;
+        }
+        else if (method == "BKG") {
+            double term1 = (f_new - f_val - 0.5 * alpha * g_norm2) / sTy;
+            double term2 = yTg_new / sTy;
+            double term3 = -sTg / sTy;
+            beta = term1 + term2 + term3;
         }
         else {
-            Mat g_k_prev = prevgrad;
-            Mat g_k_curr = grad(xcur);
-
-            if (method == "FR") {
-                double beta = g_k_curr.dot(g_k_curr) / (g_k_prev.dot(g_k_prev) + 1e-10);
-                pk = -g_k_curr + beta * pk;
-            }
-            else if (method == "PR") {
-                Mat yk = g_k_curr - g_k_prev;
-                double beta = yk.dot(g_k_curr) / (g_k_prev.dot(g_k_prev) + 1e-10);
-                pk = -g_k_curr + beta * pk;
-            }
-            else if (method == "DY") {
-                double numerator = g_k_curr.dot(g_k_curr);
-                Mat yk = g_k_curr - g_k_prev;
-                double denominator = pk.dot(yk) + 1e-10;
-                double beta = numerator / denominator;
-                pk = -g_k_curr + beta * pk;
-            }
-            else if (method == "BKY" || method == "BKS" || method == "BKG") {
-
-                Mat sk = step_size * pk;
-                Mat yk = grad(xcur + sk) - grad(xcur);
-
-                double f_prev_val = f(xcur);
-                double f_curr_val = f(xcur + sk);
-
-                if (method == "BKY") {
-                    double numerator = (f_curr_val - f_prev_val - 0.5 * sk.dot(yk))
-                        + yk.dot(g_k_curr) - sk.dot(g_k_prev); 
-                    double denominator = sk.dot(yk) + 1e-10;
-                    double beta = numerator / denominator;
-                    pk = -g_k_curr + beta * sk;
-                }
-                else if (method == "BKS") {
-                    double numerator = (f_curr_val - f_prev_val + 0.5 * sk.dot(g_k_prev))
-                        + yk.dot(g_k_curr) - sk.dot(g_k_prev);
-                    double denominator = sk.dot(yk) + 1e-10;
-                    double beta = numerator / denominator;
-                    pk = -g_k_curr + beta * sk;
-                }
-                else if (method == "BKG") {
-                    double numerator = (f_curr_val - f_prev_val - 0.5 * step_size * g_k_prev.dot(g_k_prev))
-                        + yk.dot(g_k_curr) - sk.dot(g_k_prev);
-                    double denominator = sk.dot(yk) + 1e-10;
-                    double beta = numerator / denominator;
-                    pk = -g_k_curr + beta * sk;
-                }
-            }
-            else {
-                cerr << "Unknown method: " << method << endl;
-                return xcur;
-            }
+            cerr << "Unknown method: " << method << endl;
+            return x;
         }
 
-        // Линейный поиск
-        auto line_func = [&](double a) { return f(xcur + a * pk); };
-        step_size = golden_section_search(line_func, 0.0, 1000.0);
-
-        if (step_size < min_step_size) {
-            cerr << "Step size too small" << endl;
-            return xcur;
-        }
-
-        xprev = xcur.clone();
-        xcur = xcur + step_size * pk;
-
-        // Обновление градиента и условий
-        Mat g_k_new = grad(xcur);
-        residuals.push_back(norm_2(g_k_new));
         
-        if (k > 2 && (fabs(f(xcur) - f_prev) / (fabs(f(xcur)) + 1e-10) <= tol)) {
-            cout << "Converged in " << k + 1 << " iterations" << endl;
-            return xcur;
+        
+        if (beta < 0.0) {
+            beta = 0.0;
         }
 
-        prevgrad = g_k;
-        g_k = g_k_new;
-        f_prev = f(xcur);
-    }
+        if (beta > 5.0) {
+            beta = 5.0;
+        }
 
-    cout << "Reached max iterations" << endl;
-    return xcur;
+        // === 6. Обновление направления поиска ===
+        Mat p_new = -g_new + beta * p;
+
+        if (g_new.dot(p_new) >= 0.0) {
+            p_new = -g_new;
+        }
+
+        if (restart_period > 0 && (k + 1) % restart_period == 0) {
+            p_new = -g_new;
+        }
+
+        // === 7. Обновление состояния для следующей итерации ===
+        p = p_new;
+        x = x_new;
+        g = g_new;
+        f_val = f_new;
+
+        // Отладочный вывод (каждые 10 итераций)
+        if (k % 10 == 0 || k == max_iters - 1) {
+            cout << "Iter " << k << ": f=" << f_val << ", ||g||=" << grad_norm
+                << ", alpha=" << alpha << ", beta=" << beta << endl;
+        }
+    }
+    cout << "Reached max iterations (" << max_iters << ")" << endl;
+    return x;
 }
