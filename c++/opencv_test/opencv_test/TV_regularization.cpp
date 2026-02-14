@@ -81,3 +81,63 @@ Mat tv_denoise_grad(const Mat& x, double mu, const Mat& b) {
     Mat grad_v = h_grad(grad_x[1]); // Градиент по вертикали
     return divergence2d({ grad_h, grad_v }) + mu * (x - b); // Дивергенция + регуляризация
 }
+
+// Обнаружение импульсного шума 
+Mat detect_impulse_noise(const Mat& image, double threshold) {
+    Mat noise_mask = Mat::zeros(image.size(), CV_8U);
+    for (int i = 0; i < image.rows; i++) {
+        for (int j = 0; j < image.cols; j++) {
+            float val = image.at<float>(i, j);
+            // Импульсный шум: значения близки к 0 или 255
+            if (val < threshold || val >(255.0f - threshold)) {
+                noise_mask.at<uchar>(i, j) = 255;
+            }
+        }
+    }
+    return noise_mask;
+}
+
+
+double impulse_objective(const Mat& x, const Mat& b, const Mat& noise_mask, double alpha) {
+    double sum = 0.0;
+    for (int i = 1; i < x.rows - 1; i++) {
+        for (int j = 1; j < x.cols - 1; j++) {
+            if (noise_mask.at<uchar>(i, j) > 0) { 
+
+                double S1 = (x.at<float>(i, j) - x.at<float>(i, j - 1)) +
+                    (x.at<float>(i, j) - x.at<float>(i, j + 1));
+                S1 /= 2.0;  // Нормировка на 2 соседа
+
+                double S2 = (x.at<float>(i, j) - x.at<float>(i - 1, j)) +
+                    (x.at<float>(i, j) - x.at<float>(i + 1, j));
+                S2 /= 2.0;  // Нормировка на 2 соседа
+
+                sum += alpha * (S1 * S1 + S2 * S2);
+            }
+        }
+    }
+    return sum;
+}
+
+Mat impulse_grad(const Mat& x, const Mat& b, const Mat& noise_mask, double alpha) {
+    Mat grad = Mat::zeros(x.size(), CV_32F);
+
+    for (int i = 1; i < x.rows - 1; i++) {
+        for (int j = 1; j < x.cols - 1; j++) {
+            if (noise_mask.at<uchar>(i, j) > 0) {
+                float S1 = (x.at<float>(i, j) - x.at<float>(i, j - 1)) +
+                    (x.at<float>(i, j) - x.at<float>(i, j + 1));
+                S1 /= 2.0f;  // Нормировка на 2 соседа
+
+                float S2 = (x.at<float>(i, j) - x.at<float>(i - 1, j)) +
+                    (x.at<float>(i, j) - x.at<float>(i + 1, j));
+                S2 /= 2.0f;  // Нормировка на 2 соседа
+
+                float grad_val = 2.0f * alpha * (S1 + S2);
+                grad.at<float>(i, j) = grad_val;
+            }
+        }
+    }
+
+    return grad;
+}

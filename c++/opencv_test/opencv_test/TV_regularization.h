@@ -22,3 +22,9 @@ double hyperbolic(const Mat& z, double eps);
 double tv_denoise_objective(const Mat& x, double mu, const Mat& b);
 Mat h_grad(const Mat& z, double eps);
 Mat tv_denoise_grad(const Mat& x, double mu, const Mat& b);
+// Квадратичный функционал для импульсного шума 
+double impulse_objective(const cv::Mat& x, const cv::Mat& b, const cv::Mat& noise_mask, double alpha = 0.5);
+cv::Mat impulse_grad(const cv::Mat& x, const cv::Mat& b, const cv::Mat& noise_mask, double alpha = 0.5);
+
+// Обнаружение импульсного шума 
+cv::Mat detect_impulse_noise(const cv::Mat& image, double threshold = 50.0);
